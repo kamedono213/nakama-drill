@@ -57,9 +57,49 @@ for (const k in kanji) {
 const pref = read('todofuken.txt').map(l => l.split('|'));
 if (pref.length !== 47) errs.push('都道府県が47ない: ' + pref.length);
 
+
+// ---------- 集めるカード(元素くん・国旗くん・星座くん)
+// 元素: data/elements.txt。国旗: 国旗検定(KokkiKentei)の国名・由来と国旗画像。星座: ほしぞらドリルの d3-celestial データ(BSD-3-Clause)
+const STATE = { H: '気体', He: '気体', N: '気体', O: '気体', F: '気体', Ne: '気体', Cl: '気体', Ar: '気体', Kr: '気体', Xe: '気体', Rn: '気体', Br: '液体', Hg: '液体' };
+const el = read('elements.txt').map(l => { const [n, sym, ja, cat, note] = l.split('|'); return { n: +n, sym, ja, cat, note: note || '', st: STATE[sym] || (+n >= 100 ? '' : '固体') }; });
+if (el.length !== 118 || el.some((e, i) => e.n !== i + 1)) errs.push('元素が1〜118にそろっていない');
+const GAMES = 'C:/Users/user/Desktop/自作ゲーム/3_大型・制作中';
+const REG = { asia: 'アジア', europe: 'ヨーロッパ', africa: 'アフリカ', namerica: '北アメリカ', samerica: '南アメリカ', oceania: 'オセアニア' };
+const flag = JSON.parse(fs.readFileSync(GAMES + '/KokkiKentei/app/data/countries.json', 'utf8')).map(c => ({ c: c.c, ja: c.ja, reg: REG[c.region], note: c.origin }));
+flag.forEach(f => { if (!fs.existsSync(path.join(__dirname, '../app/flags', f.c + '.svg'))) errs.push('国旗画像がない ' + f.c); });
+const RES = GAMES + '/TenmonDrill/research/';
+const cnames = JSON.parse(fs.readFileSync(RES + 'constellations.json', 'utf8')).features;
+const lines = JSON.parse(fs.readFileSync(RES + 'constellations.lines.json', 'utf8')).features;
+const star = [];
+for (const f of cnames) {
+  const id = f.id.replace(/\d$/, '');           // へび座は頭(Ser1)と尾(Ser2)に分かれているので1つにまとめる
+  if (star.some(s => s.id === id)) continue;
+  const segs = lines.filter(l => l.id.replace(/\d$/, '') === id).flatMap(l => l.geometry.coordinates);
+  const [lon0, lat0] = f.properties.display;
+  const r = Math.PI / 180, d0 = lat0 * r;
+  // 星座の中心から見た向きで平面に写す(東が左)
+  const pts = segs.map(seg => seg.map(([lon, lat]) => {
+    const dl = (lon - lon0) * r, d = lat * r;
+    return [-Math.cos(d) * Math.sin(dl), Math.cos(d0) * Math.sin(d) - Math.sin(d0) * Math.cos(d) * Math.cos(dl)];
+  }));
+  const all = pts.flat(), xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys), k = 84 / Math.max(w, h, 1e-6);
+  const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+  const P = ([x, y]) => [Math.round(50 + (x - cx) * k), Math.round(50 - (y - cy) * k)];
+  const path_ = pts.map(seg => 'M' + seg.map(p => P(p).join(' ')).join('L')).join('');
+  const dots = [...new Set(all.map(p => P(p).join(',')))].join(' ');
+  const ra = ((lon0 % 360) + 360) % 360 / 15;
+  // よく見える季節(夜8時ごろ南の空に来るころ)のめやす。北の空の星座と、日本からほとんど見えない南の星座は別に書く
+  const season = lat0 > 65 ? '一年中(北の空)' : lat0 < -55 ? '日本からはほとんど見えない' : ra >= 3 && ra < 9 ? '冬' : ra >= 9 && ra < 15 ? '春' : ra >= 15 && ra < 21 ? '夏' : '秋';
+  star.push({ id, ja: f.properties.ja, la: f.properties.la || f.properties.name, season, d: path_, dots });
+}
+if (star.length !== 88) errs.push('星座が88ない: ' + star.length);
+const cards = { el, flag, star };
+
 if (errs.length) { console.log(errs.join('\n')); process.exit(1); }
 const out = path.join(__dirname, '../app/data/units.js');
-fs.writeFileSync(out, '// 自動生成(tools/build-data.js)。data/*.txt を直して作り直す。\nwindow.ND = ' + JSON.stringify({ units, kanji, pref }) + ';\n');
+fs.writeFileSync(out, '// 自動生成(tools/build-data.js)。data/*.txt を直して作り直す。\nwindow.ND = ' + JSON.stringify({ units, kanji, pref, cards }) + ';\n');
 const by = {};
 units.forEach(u => { by[u.subj] = (by[u.subj] || 0) + 1; });
+console.log('カード', el.length, flag.length, star.length);
 console.log('単元', units.length, by, '4択の問題', units.reduce((s, u) => s + (u.qs ? u.qs.length : 0), 0));

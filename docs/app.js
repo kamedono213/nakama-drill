@@ -227,6 +227,63 @@ const save = () => { try { localStorage.setItem(SAVE, JSON.stringify(S)); } catc
 const rec = id => S.u[id] || { clears: 0, best: 0, kira: false };
 const formOf = id => { const c = rec(id).clears; return c >= EVOLVE[2] ? 3 : c >= EVOLVE[1] ? 2 : c >= 1 ? 1 : 0; };
 const owned = () => UNITS.filter(u => formOf(u.id) > 0);
+// ブラウザが自動で記録を消さないようにたのむ(対応していない端末では何もしない)
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* なくても遊べる */ }
+
+// ---------- 集めるカード(元素くん・国旗くん・星座くん)
+// クリア1回(1単元7回まで)と、はじめての全問正解ごとに1まい。出る順番は人ごとの seed で決まるので、
+// クリアの記録さえあれば、どのカードを持っているかは毎回同じに作り直せる(ふっかつのじゅもんが短くてすむ)
+const C = window.ND.cards;
+const BOOKS = {
+  el: { name: '元素くん', icon: '⚗️', color: '#7b4fd6', list: C.el.map(e => ({ id: 'e' + e.n, b: 'el', e })) },
+  flag: { name: '国旗くん', icon: '🚩', color: '#d6455a', list: C.flag.map(f => ({ id: 'f' + f.c, b: 'flag', f })) },
+  star: { name: '星座くん', icon: '⭐', color: '#2b3f8f', list: C.star.map(s => ({ id: 's' + s.id, b: 'star', s })) },
+};
+const ALLCARDS = Object.values(BOOKS).flatMap(v => v.list);
+const cardById = Object.fromEntries(ALLCARDS.map(c => [c.id, c]));
+if (!S.seed) { S.seed = 1 + Math.floor(Math.random() * 0xFFFFFE); save(); }
+let order = null;
+function cardOrder() {
+  if (order && order.seed === S.seed) return order.list;
+  const r = rng(S.seed), a = ALLCARDS.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  order = { seed: S.seed, list: a };
+  return a;
+}
+const cardCount = () => Math.min(ALLCARDS.length, UNITS.reduce((s, u) => { const r = rec(u.id); return s + Math.min(r.clears, 7) + (r.kira ? 1 : 0); }, 0));
+const myCards = () => new Set(cardOrder().slice(0, cardCount()).map(c => c.id));
+
+// ---------- ふっかつのじゅもん(記録をひらがなの文字列にする。サイトのデータが消えても、これで元にもどせる)
+// 中身: 版(4bit)・seed(24bit)・あいぼう(7bit)・単元ごとに クリア回数0〜7(3bit)と さいこう点 0=7点以下/1=8/2=9/3=10(2bit)・チェック(8bit)
+// 単元の順番は UNITS の順。単元を足すときは、かならず最後に足す
+const KANA = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわんがぎぐげござじずぜぞだでどばびぶべぼ';
+function toBits(v, n) { return v.toString(2).padStart(n, '0').slice(-n); }
+function makeSpell() {
+  let b = toBits(1, 4) + toBits(S.seed, 24) + toBits(S.partner && byId[S.partner] ? UNITS.indexOf(byId[S.partner]) + 1 : 0, 7);
+  for (const u of UNITS) { const r = rec(u.id); b += toBits(Math.min(r.clears, 7), 3) + toBits(r.best >= 10 ? 3 : r.best >= 8 ? r.best - 7 : 0, 2); }
+  let sum = 0; for (let i = 0; i < b.length; i += 8) sum = (sum + parseInt(b.slice(i, i + 8).padEnd(8, '0'), 2)) % 256;
+  b += toBits(sum, 8);
+  while (b.length % 6) b += '0';
+  let s = '';
+  for (let i = 0; i < b.length; i += 6) s += KANA[parseInt(b.slice(i, i + 6), 2)];
+  return s.match(/.{1,4}/g).join(' ');
+}
+function readSpell(text) {
+  const t = text.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).split('').filter(c => KANA.includes(c));
+  let b = t.map(c => toBits(KANA.indexOf(c), 6)).join('');
+  const need = 4 + 24 + 7 + UNITS.length * 5 + 8;
+  if (b.length < need || b.length >= need + 6 + 6) return null;
+  b = b.slice(0, need);
+  const body = b.slice(0, -8);
+  let sum = 0; for (let i = 0; i < body.length; i += 8) sum = (sum + parseInt(body.slice(i, i + 8).padEnd(8, '0'), 2)) % 256;
+  if (sum !== parseInt(b.slice(-8), 2) || parseInt(b.slice(0, 4), 2) !== 1) return null;
+  const seed = parseInt(b.slice(4, 28), 2), p = parseInt(b.slice(28, 35), 2), u = {};
+  UNITS.forEach((x, i) => {
+    const c = parseInt(b.slice(35 + i * 5, 38 + i * 5), 2), st = parseInt(b.slice(38 + i * 5, 40 + i * 5), 2);
+    if (c || st) u[x.id] = { clears: c, best: st ? 7 + st : 0, kira: st === 3 };
+  });
+  return { seed, partner: p ? UNITS[p - 1].id : null, u };
+}
 
 // ---------- なかまの絵(単元IDから毎回同じ形・色を作る SVG)
 function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -498,7 +555,8 @@ window.addEventListener('popstate', e => render(e.state || { s: 'home' }));
 function render(st) {
   cur = st;
   if (st.s === 'subj') subjScreen(st.subj);
-  else if (st.s === 'zukan') zukanScreen();
+  else if (st.s === 'zukan') zukanScreen(st.book || 'nakama');
+  else if (st.s === 'spell') spellScreen();
   else if (st.s === 'quiz' && byId[st.id]) startQuiz(byId[st.id]);
   else home();
   window.scrollTo(0, 0);
@@ -508,20 +566,22 @@ const back = () => history.back();
 // ---------- ホーム
 function partnerUnit() { return S.partner && formOf(S.partner) ? byId[S.partner] : owned()[0] || null; }
 function home() {
-  const p = partnerUnit(), n = owned().length;
+  const p = partnerUnit(), n = owned().length, mine = myCards();
   app.innerHTML = `
     <header class="top" data-furi-slot><h1>なかまドリル</h1></header>
     <section class="hero">
       <div class="stage">${p ? nakamaSVG(p, formOf(p.id), rec(p.id).kira, 'bob') : eggSVG(UNITS[0], 'wob')}</div>
       <div class="say">${p ? `<b>${esc(p.names[formOf(p.id) - 1])}</b><span>きょうも いっしょに がんばろう！</span>` : '<b>なかまを あつめよう</b><span>ドリルを1つクリアすると、たまごから なかまが生まれるよ。</span>'}</div>
     </section>
-    <button class="zbtn" id="zukan"><span>📕 ずかん</span><b>${n}<small> / ${UNITS.length}</small></b></button>
+    <button class="zbtn" id="zukan"><span>📕 ずかん</span><span class="zcount">${[['🐉', n, UNITS.length], ...Object.entries(BOOKS).map(([k, v]) => [v.icon, v.list.filter(c => mine.has(c.id)).length, v.list.length])].map(([i, a, z]) => `<span>${i}<b>${a}</b><small>/${z}</small></span>`).join('')}</span></button>
     <div class="subjs">${Object.entries(SUBJ).map(([k, v]) => {
       const us = UNITS.filter(u => u.subj === k), got = us.filter(u => formOf(u.id)).length;
       return `<button class="subj" data-subj="${k}" style="--c:${v.color}"><span class="ic">${v.icon}</span><b>${k}</b><small>${got} / ${us.length}</small><i style="width:${(got / us.length) * 100}%"></i></button>`;
     }).join('')}</div>
-    <p class="foot">10問中${PASS}問できたらクリア。${EVOLVE[1]}回・${EVOLVE[2]}回クリアで進化、全問正解でキラになるよ。記録はこの端末に保存されます。</p>`;
+    <button class="spellbtn" id="spell">🔑 ふっかつのじゅもん(記録のひかえ)</button>
+    <p class="foot">10問中${PASS}問できたらクリア。${EVOLVE[1]}回・${EVOLVE[2]}回クリアで進化、全問正解でキラ。クリアするたびに、元素くん・国旗くん・星座くんのカードも1まいもらえるよ。記録はこの端末に保存されます。ブラウザのデータを消すときは、先に「ふっかつのじゅもん」をひかえておいてね。</p>`;
   app.querySelector('#zukan').onclick = () => { SE.play('select'); go({ s: 'zukan' }); };
+  app.querySelector('#spell').onclick = () => { SE.play('select'); go({ s: 'spell' }); };
   app.querySelectorAll('[data-subj]').forEach(b => b.onclick = () => { SE.play('select'); go({ s: 'subj', subj: b.dataset.subj }); });
 }
 
@@ -646,9 +706,11 @@ function result() {
   const { u, score, list, miss } = Q, n = list.length, v = SUBJ[u.subj];
   const before = rec(u.id), f0 = formOf(u.id), clear = score >= PASS, perfect = score === n;
   const r = { clears: before.clears + (clear ? 1 : 0), best: Math.max(before.best, score), kira: before.kira || perfect };
+  const c0 = cardCount();
   S.u[u.id] = r;
   if (clear && !S.partner) S.partner = u.id;
   save();
+  const got = cardOrder().slice(c0, cardCount());
   const f1 = formOf(u.id), kiraNew = perfect && !before.kira;
   const ev = !clear ? 'miss' : f0 === 0 ? 'born' : f1 > f0 ? 'evolve' : kiraNew ? 'kira' : 'clear';
   const head = { miss: 'もう少し！', born: 'なかまが生まれた！', evolve: '進化した！', kira: 'キラになった！', clear: 'クリア！' }[ev];
@@ -665,6 +727,8 @@ function result() {
       <p class="nm" id="nm">${ev === 'miss' ? `${PASS}問できたらクリア。${f0 ? '' : 'たまごが待っているよ！'}` : ev === 'born' ? '…あれ？たまごが動いてる！' : esc(u.names[f0 - 1])}</p>
       ${clear && next ? `<p class="hint">あと${next}回クリアで進化！</p>` : clear && f1 === 3 && !r.kira ? '<p class="hint">全問正解でキラになるよ！</p>' : ''}
     </section>
+    ${got.length ? `<section class="getcards" id="getcards"><h3>🎁 カードをゲット！</h3><div class="cgrid">${got.map((c, i) => `<button class="card flip" style="animation-delay:${2 + i * 0.5}s" data-card="${c.id}">${cardFace(c)}</button>`).join('')}</div><p class="sub">タップすると、くわしく見られるよ</p></section>` : clear && r.clears > 7 ? '<p class="sub center">この単元のカードは ぜんぶもらったよ。ほかの単元でもカードを集めよう！</p>' : ''}
+    <div id="dlg"></div>
     <div class="btns">
       <button class="btn main" id="again">もう1回</button>
       <button class="btn" id="tolist">単元をえらぶ</button></div>
@@ -673,6 +737,8 @@ function result() {
   app.querySelector('#tolist').onclick = back;
   app.querySelector('#again').onclick = () => { SE.play('start'); go({ s: 'quiz', id: u.id }, true); };
   SE.play(perfect ? 'perfect' : clear ? 'result' : 'over');
+  app.querySelectorAll('[data-card]').forEach(b => b.onclick = () => cardDetail(cardById[b.dataset.card]));
+  if (got.length) setTimeout(() => SE.play('clear'), 2100);
   const rv = app.querySelector('#reveal'), nm = app.querySelector('#nm');
   const pop = (html, text) => setTimeout(() => {
     rv.innerHTML = `<div class="flash"></div>${html}`; rv.classList.add('popin');
@@ -683,35 +749,123 @@ function result() {
   if (ev === 'kira') pop(nakamaSVG(u, f1, true, 'bob'), `<b>${esc(u.names[f1 - 1])}</b> がキラキラにかがやいた！`);
 }
 
-// ---------- ずかん
-function zukanScreen() {
-  const n = owned().length;
-  app.innerHTML = `
-    <header class="top" data-furi-slot><button class="back" id="back" data-noconfirm aria-label="もどる">←</button><h2>📕 なかまずかん</h2><span class="pill">${n} / ${UNITS.length}</span></header>
-    ${Object.entries(SUBJ).map(([k, v]) => `<h3 class="zh" style="--c:${v.color}">${v.icon} ${k}の なかま(${v.kind})</h3>
+// ---------- カードの絵
+const CAT_COLOR = { アルカリ金属: '#ff8a65', アルカリ土類金属: '#ffb74d', 遷移金属: '#e57373', その他の金属: '#90a4ae', 半金属: '#81c784', 非金属: '#4fc3f7', ハロゲン: '#ffd54f', 貴ガス: '#ba68c8', ランタノイド: '#f48fb1', アクチノイド: '#ce93d8', 超重元素: '#a1887f' };
+// 「〜くん」の顔(カードのすみに出す小さなキャラクター)
+const kunFace = (fill, cls = 'kun') => `<svg class="${cls}" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="21" r="16" fill="${fill}" stroke="#2a2233" stroke-width="2"/><circle cx="14" cy="19" r="2.6" fill="#2a2233"/><circle cx="26" cy="19" r="2.6" fill="#2a2233"/><circle cx="15" cy="18" r=".9" fill="#fff"/><circle cx="27" cy="18" r=".9" fill="#fff"/><path d="M15 26 Q20 30 25 26" fill="none" stroke="#2a2233" stroke-width="2" stroke-linecap="round"/><ellipse cx="10" cy="25" rx="2.6" ry="1.6" fill="#ff7aa2" opacity=".6"/><ellipse cx="30" cy="25" rx="2.6" ry="1.6" fill="#ff7aa2" opacity=".6"/></svg>`;
+function cardFace(c) {
+  if (c.b === 'el') {
+    const e = c.e;
+    return `<span class="cf el" style="--k:${CAT_COLOR[e.cat]}"><small class="no">${e.n}</small><b class="sym">${esc(e.sym)}</b><span class="nm2">${esc(e.ja)}</span>${kunFace('#fff')}</span>`;
+  }
+  if (c.b === 'flag') return `<span class="cf fl"><img src="flags/${c.f.c}.svg" alt="" loading="lazy"><span class="nm2">${esc(c.f.ja)}</span>${kunFace('#ffe08a')}</span>`;
+  return `<span class="cf st">${starSVG(c.s)}<span class="nm2">${esc(c.s.ja)}</span>${kunFace('#ffd84a')}</span>`;
+}
+function starSVG(s) {
+  return `<svg class="sky" viewBox="-4 -4 108 108" aria-hidden="true"><path d="${s.d}" fill="none" stroke="#9fb7ff" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>${s.dots.split(' ').map(p => { const [x, y] = p.split(','); return `<circle cx="${x}" cy="${y}" r="2.6" fill="#fff6c8"/>`; }).join('')}</svg>`;
+}
+
+// ---------- ずかん(なかま・元素くん・国旗くん・星座くん)
+function zukanScreen(book) {
+  const mine = myCards();
+  const tabs = [['nakama', '🐉', 'なかま', owned().length, UNITS.length], ...Object.entries(BOOKS).map(([k, v]) => [k, v.icon, v.name, v.list.filter(c => mine.has(c.id)).length, v.list.length])];
+  let body = '';
+  if (book === 'nakama') {
+    body = Object.entries(SUBJ).map(([k, v]) => `<h3 class="zh" style="--c:${v.color}">${v.icon} ${k}の なかま(${v.kind})</h3>
       <div class="zgrid">${UNITS.filter(u => u.subj === k).map(u => {
         const f = formOf(u.id), r = rec(u.id);
         return `<button class="zc${f ? '' : ' sil'}${r.kira ? ' kira' : ''}" data-id="${u.id}" ${f ? '' : 'disabled'}>${f ? nakamaSVG(u, f, r.kira) : nakamaSVG(u, 1, false)}<small>${f ? esc(u.names[f - 1]) : '？？？'}</small></button>`;
-      }).join('')}</div>`).join('')}
+      }).join('')}</div>`).join('');
+  } else {
+    const B = BOOKS[book];
+    const lead = { el: '元素は、すべてのものをつくっている「もと」。番号(原子番号)の順にならんでいるよ。', flag: '世界197か国の国旗。もようや色には、それぞれ意味があるよ。', star: '空にある88の星座。よく見える季節もおぼえよう。' }[book];
+    const groups = book === 'flag' ? [...new Set(B.list.map(c => c.f.reg))].map(g => [g, B.list.filter(c => c.f.reg === g)])
+      : book === 'star' ? ['春', '夏', '秋', '冬', '一年中(北の空)', '日本からはほとんど見えない'].map(g => [g, B.list.filter(c => c.s.season === g)])
+      : [['', B.list]];
+    body = `<p class="sub">${lead}</p>` + groups.map(([g, list]) => `${g ? `<h3 class="zh" style="--c:${B.color}">${esc(g)}${book === 'star' && g.length < 2 ? 'の星座' : ''}(${list.filter(c => mine.has(c.id)).length}/${list.length})</h3>` : ''}
+      <div class="cgrid">${list.map(c => mine.has(c.id) ? `<button class="card" data-card="${c.id}">${cardFace(c)}</button>`
+        : `<button class="card none" disabled><span class="cf"><b class="unk">${book === 'el' ? c.e.n : '？'}</b></span></button>`).join('')}</div>`).join('');
+  }
+  app.innerHTML = `
+    <header class="top" data-furi-slot><button class="back" id="back" data-noconfirm aria-label="もどる">←</button><h2>📕 ずかん</h2></header>
+    <div class="btabs">${tabs.map(([k, i, nm, a, z]) => `<button class="btab${k === book ? ' on' : ''}" data-book="${k}"><span>${i}</span><b>${nm}</b><small>${a}/${z}</small></button>`).join('')}</div>
+    ${body}
     <div id="dlg"></div>`;
   app.querySelector('#back').onclick = back;
+  app.querySelectorAll('[data-book]').forEach(b => b.onclick = () => { SE.play('select'); history.replaceState({ s: 'zukan', book: b.dataset.book }, ''); zukanScreen(b.dataset.book); });
   app.querySelectorAll('.zc[data-id]').forEach(b => b.onclick = () => detail(byId[b.dataset.id]));
+  app.querySelectorAll('[data-card]').forEach(b => b.onclick = () => cardDetail(cardById[b.dataset.card]));
+}
+function modal(html, color) {
+  const d = app.querySelector('#dlg');
+  d.innerHTML = `<div class="modal" id="mdl"><div class="sheet" style="--c:${color}">${html}<div class="btns"><button class="btn" id="cls">とじる</button></div></div></div>`;
+  const close = () => { d.innerHTML = ''; };
+  d.querySelector('#cls').onclick = close;
+  d.querySelector('#mdl').onclick = e => { if (e.target.id === 'mdl') close(); };
+  return d;
+}
+function cardDetail(c) {
+  SE.play('select');
+  if (c.b === 'el') {
+    const e = c.e;
+    modal(`<div class="bigcard">${cardFace(c)}</div><h3>${esc(e.ja)}くん</h3>
+      <dl class="facts"><dt>原子番号</dt><dd>${e.n}</dd><dt>元素記号</dt><dd>${esc(e.sym)}</dd><dt>なかま</dt><dd>${esc(e.cat)}</dd>${e.st ? `<dt>ふつうの温度で</dt><dd>${e.st}</dd>` : ''}</dl>
+      ${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}`, BOOKS.el.color);
+  } else if (c.b === 'flag') {
+    modal(`<div class="bigflag"><img src="flags/${c.f.c}.svg" alt="${esc(c.f.ja)}の国旗"></div><h3>${esc(c.f.ja)}の国旗くん</h3>
+      <p class="sub">${esc(c.f.reg)}の国</p><p class="note">${esc(c.f.note)}</p><p class="src">由来は英語版Wikipediaの各国国旗の記事をもとに要約</p>`, BOOKS.flag.color);
+  } else {
+    modal(`<div class="bigsky">${starSVG(c.s)}</div><h3>${esc(c.s.ja)}くん</h3>
+      <dl class="facts"><dt>よく見える季節</dt><dd>${esc(c.s.season)}</dd><dt>学名</dt><dd lang="la">${esc(c.s.la)}</dd></dl>
+      <p class="src">季節は、夜8時ごろに見やすい時期のめやす。星座の線は d3-celestial のデータ</p>`, BOOKS.star.color);
+  }
 }
 function detail(u) {
-  const f = formOf(u.id), r = rec(u.id), d = app.querySelector('#dlg');
+  const f = formOf(u.id), r = rec(u.id);
   SE.play('select');
-  d.innerHTML = `<div class="modal" id="mdl"><div class="sheet" style="--c:${SUBJ[u.subj].color}">
-    <div class="dbig">${nakamaSVG(u, f, r.kira, 'bob')}</div>
+  const d = modal(`<div class="dbig">${nakamaSVG(u, f, r.kira, 'bob')}</div>
     <h3>${esc(u.names[f - 1])}${r.kira ? ' ✨' : ''}</h3>
     <p class="sub">${u.grade}年 ${u.subj}「${esc(u.title)}」の なかま</p>
     <div class="forms">${[1, 2, 3].map(i => `<div class="${i <= f ? '' : 'sil'}">${nakamaSVG(u, i, r.kira && i <= f)}<small>${i <= f ? esc(u.names[i - 1]) : '？？？'}</small></div>`).join('')}</div>
     <p class="sub">クリア ${r.clears}回・さいこう ${r.best}点${f < 3 ? `・あと${EVOLVE[f] - r.clears}回で進化` : ''}${r.kira ? '' : '・全問正解でキラ'}</p>
-    <div class="btns"><button class="btn main" id="mate">${S.partner === u.id ? 'あいぼう です' : 'あいぼうにする'}</button><button class="btn" id="cls">とじる</button></div>
-  </div></div>`;
-  const close = () => { d.innerHTML = ''; };
-  d.querySelector('#cls').onclick = close;
-  d.querySelector('#mdl').onclick = e => { if (e.target.id === 'mdl') close(); };
+    <button class="btn main wide" id="mate">${S.partner === u.id ? 'あいぼう です' : 'あいぼうにする'}</button>`, SUBJ[u.subj].color);
   d.querySelector('#mate').onclick = () => { S.partner = u.id; save(); SE.play('ok'); d.querySelector('#mate').textContent = 'あいぼう です'; };
+}
+
+// ---------- ふっかつのじゅもん
+function spellScreen() {
+  const sp = makeSpell();
+  app.innerHTML = `
+    <header class="top" data-furi-slot><button class="back" id="back" data-noconfirm aria-label="もどる">←</button><h2>🔑 ふっかつのじゅもん</h2></header>
+    <section class="spell">
+      <p>いまの記録を、じゅもんにしたよ。ブラウザのデータを消したり、スマホを買いかえたりしても、このじゅもんを入れれば元にもどせるよ。</p>
+      <div class="spelltext" data-nofuri id="sp">${sp}</div>
+      <div class="btns"><button class="btn main" id="copy">コピーする</button>${navigator.share ? '<button class="btn" id="share">おくる・ほぞん</button>' : ''}</div>
+      <p class="sub">紙に書くか、スクリーンショットをとるか、LINEなどで自分におくっておくと安心。クリアするたびに じゅもんは かわるよ。</p>
+    </section>
+    <section class="spell">
+      <h3>じゅもんを入れて、記録をもどす</h3>
+      <textarea id="in" rows="4" placeholder="ここに じゅもんを入れる(カタカナ・空白はあってもよい)"></textarea>
+      <button class="btn main wide" id="load">記録をもどす</button>
+      <p class="msg" id="msg"></p>
+    </section>`;
+  app.querySelector('#back').onclick = back;
+  const msg = app.querySelector('#msg');
+  app.querySelector('#copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(sp); msg.textContent = 'コピーしたよ！'; }
+    catch (e) { const r = document.createRange(); r.selectNodeContents(app.querySelector('#sp')); getSelection().removeAllRanges(); getSelection().addRange(r); msg.textContent = 'じゅもんを えらんだよ。長おしでコピーしてね'; }
+    SE.play('ok');
+  };
+  const sh = app.querySelector('#share');
+  if (sh) sh.onclick = () => navigator.share({ title: 'なかまドリル ふっかつのじゅもん', text: 'なかまドリルの ふっかつのじゅもん\n' + sp }).catch(() => {});
+  app.querySelector('#load').onclick = () => {
+    const r = readSpell(app.querySelector('#in').value);
+    if (!r) { msg.textContent = 'じゅもんが ちがうみたい。1文字ずつ たしかめてね'; SE.play('ng'); return; }
+    if (!confirm('いまの記録が、じゅもんの記録に入れかわるよ。いい？')) return;
+    S.seed = r.seed; S.partner = r.partner; S.u = r.u; save();
+    msg.textContent = '記録がもどったよ！'; SE.play('perfect');
+    setTimeout(() => go({ s: 'home' }), 900);
+  };
 }
 
 // ---------- はじまり

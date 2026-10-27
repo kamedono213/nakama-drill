@@ -8,6 +8,8 @@
 - 漢字: `data/kanji.txt`(`node tools/check-kanji.js` で学年の範囲と読みを確認)
 - 4択: `data/choice-*.txt`(書き方はファイルの先頭)。都道府県は `data/todofuken.txt`
 - 算数: `app/app.js` の `GEN`(その場で作る)
+- 集めるカード: 元素 `data/elements.txt`、国旗は国旗検定(KokkiKentei)の国名・由来・画像、星座はほしぞらドリルの d3-celestial データ(BSD-3-Clause)。カードはクリアの記録から決まる(ふっかつのじゅもんで戻せる)
+- **単元を足すときは必ず各ファイルの最後に足す**(ふっかつのじゅもんが UNITS の順番を使うため)
 1. `node tools/build-data.js`
 2. `node D:/onze.ltd/tools/furigana/make-furi.js .`(文章を変えたとき)
 3. `node tools/build-pages.js` で `docs/` を作り直してpush

@@ -68,7 +68,8 @@ const files = [];
 const hash = crypto.createHash('sha1');
 files.sort().forEach(f => hash.update(f).update(fs.readFileSync(path.join(OUT, f))));
 const version = hash.digest('hex').slice(0, 10);
-const precache = ['./', ...files.filter(f => f !== 'index.html')];
+// 国旗の画像(約3MB)は最初にまとめて保存せず、ずかんで見たときに保存する(通信量をおさえる)
+const precache = ['./', ...files.filter(f => f !== 'index.html' && !f.startsWith('flags/'))];
 const libs = [];
 fs.writeFileSync(path.join(OUT, 'sw.js'), `// 自動生成(tools/build-pages.js)。手で編集しない。
 const CACHE = 'nakama-${version}';
