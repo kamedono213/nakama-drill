@@ -1,0 +1,178 @@
+<title>なかまドリル</title>
+<meta name="description" content="小学校の国語・算数・理科・社会のドリル。クリアすると、たまごから「なかま」が生まれて進化する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">
+<style>
+/* ノートの紙のようなクリーム色に、教科ごとの色(国語=赤・算数=青・理科=緑・社会=オレンジ) */
+:root {
+  --bg: #fbf5e9;
+  --card: #fffdf8;
+  --ink: #26233a;
+  --sub: #6b6880;
+  --line: #ebe1cc;
+  --ok: #26a269;
+  --ok-bg: #e0f5ea;
+  --ng: #d6455a;
+  --ng-bg: #fce6e9;
+  --gold: #f2b500;
+  --display: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+  --body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; background: var(--bg) radial-gradient(circle at 1px 1px, rgba(0,0,0,.05) 1px, transparent 0) 0 0 / 22px 22px; color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.65; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: default; }
+#app { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+
+/* 見出し */
+.top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.top > .furi-tools { flex-basis: 100%; }
+.top h1 { margin: 0; font-family: var(--display); font-size: 30px; font-weight: 800; letter-spacing: .02em; color: #3a2f7a; }
+.top h2 { margin: 0; font-family: var(--display); font-size: 22px; font-weight: 800; flex: 1; min-width: 0; color: var(--c, var(--ink)); }
+.back { border: 0; background: var(--card); border-radius: 999px; width: 42px; height: 42px; font-size: 19px; flex: none; box-shadow: 0 0 0 1.5px var(--line) inset, 0 2px 0 var(--line); }
+.pill { font-family: var(--display); font-weight: 800; font-size: 14px; background: var(--card); border-radius: 999px; padding: 4px 12px; box-shadow: 0 0 0 1.5px var(--line) inset; white-space: nowrap; }
+.foot { margin-top: 22px; font-size: 13px; color: var(--sub); }
+
+/* なかまの絵 */
+.nakama, .egg { display: block; width: 100%; height: auto; overflow: visible; }
+.bob { animation: bob 2.4s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes bob { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-5%) scale(.98, 1.02); } }
+.wob { animation: wob 2.2s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes wob { 0%, 70%, 100% { transform: rotate(0); } 78% { transform: rotate(-7deg); } 86% { transform: rotate(6deg); } 93% { transform: rotate(-3deg); } }
+.shake { animation: shake .5s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
+.egg .crack { opacity: 0; }
+.shake .crack { animation: crack 1.5s forwards; }
+@keyframes crack { 0%, 40% { opacity: 0; } 100% { opacity: 1; } }
+.pre { animation: pre 1.5s ease-in forwards; transform-origin: 50% 70%; }
+@keyframes pre { 0% { filter: brightness(1); } 100% { filter: brightness(3) saturate(0); transform: scale(1.06); } }
+.tw { animation: tw 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes tw { 0%, 100% { opacity: .2; transform: scale(.5); } 50% { opacity: 1; transform: scale(1.1); } }
+.sil .nakama, .sil .egg { filter: brightness(0); opacity: .16; }
+.unit .sil .egg { filter: none; opacity: .9; }
+
+/* ホーム */
+.hero { position: relative; background: linear-gradient(160deg, #fff7d6, #ffe4f0 60%, #e2ecff); border-radius: 24px; padding: 18px 16px 14px; display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: center; box-shadow: 0 3px 0 var(--line); margin-bottom: 12px; }
+.stage { width: 150px; }
+.say { background: var(--card); border-radius: 16px; padding: 12px 14px; position: relative; box-shadow: 0 0 0 1.5px var(--line) inset; }
+.say::before { content: ""; position: absolute; left: -9px; top: 26px; border: 9px solid transparent; border-right-color: var(--card); border-left: 0; }
+.say b { display: block; font-family: var(--display); font-size: 19px; color: #3a2f7a; line-height: 1.4; }
+.say span { font-size: 14px; color: var(--sub); }
+.zbtn { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; border-radius: 16px; padding: 12px 18px; margin-bottom: 14px; background: #3a2f7a; color: #fff; font-family: var(--display); font-weight: 800; font-size: 18px; box-shadow: 0 4px 0 #261e57; }
+.zbtn b { font-size: 24px; } .zbtn small { font-size: 15px; opacity: .8; }
+.subjs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.subj { position: relative; overflow: hidden; border: 0; border-radius: 20px; padding: 16px 12px 18px; background: var(--card); box-shadow: 0 0 0 2.5px var(--c) inset, 0 4px 0 var(--c); display: grid; justify-items: center; gap: 2px; }
+.subj .ic { font-size: 34px; line-height: 1.2; }
+.subj b { font-family: var(--display); font-size: 24px; color: var(--c); }
+.subj small { font-family: var(--display); font-weight: 700; color: var(--sub); }
+.subj i { position: absolute; left: 0; bottom: 0; height: 7px; background: var(--c); opacity: .7; }
+.subj:active, .unit:active, .ch:active, .key:active, .zbtn:active { transform: translateY(2px); }
+
+/* 単元の一覧 */
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; }
+.tab { flex: 1 0 auto; min-width: 54px; border: 0; border-radius: 12px; padding: 8px 10px; font-family: var(--display); font-weight: 800; background: var(--card); box-shadow: 0 0 0 1.5px var(--line) inset; color: var(--sub); }
+.tab.on { background: var(--c); color: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.18); }
+.units { display: grid; gap: 10px; }
+.unit { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: center; text-align: left; border: 0; border-radius: 18px; padding: 10px 14px 10px 10px; background: var(--card); box-shadow: 0 0 0 1.5px var(--line) inset, 0 3px 0 var(--line); border-left: 6px solid var(--c); }
+.unit .pic { width: 76px; height: 76px; display: grid; place-items: center; background: #f6f0e2; border-radius: 14px; }
+.unit .pic svg { width: 70px; }
+.unit .txt { display: grid; gap: 1px; min-width: 0; }
+.unit b { font-family: var(--display); font-size: 17px; line-height: 1.4; }
+.unit small { color: var(--sub); font-size: 13px; }
+.meta { font-size: 12px; color: var(--sub); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.stars span { color: #ddd3bd; font-size: 15px; } .stars span.on { color: var(--gold); }
+.stars.big span { font-size: 34px; text-shadow: 0 2px 0 rgba(0,0,0,.08); }
+
+/* 出題 */
+.qbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.qbar .ttl { flex: 1; min-width: 0; font-family: var(--display); font-weight: 800; font-size: 16px; line-height: 1.35; color: var(--c); }
+.qbar .ttl small { display: block; color: var(--sub); font-size: 12px; font-weight: 700; }
+.prog { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin-bottom: 10px; }
+.prog i { display: block; height: 100%; border-radius: 99px; transition: width .3s; }
+.buddy { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.buddy svg.mini { width: 56px; flex: none; }
+.bubble { background: var(--card); border-radius: 12px; padding: 4px 12px; font-family: var(--display); font-weight: 700; font-size: 14px; box-shadow: 0 0 0 1.5px var(--line) inset; }
+.buddy.yay svg { animation: yay .6s ease; } @keyframes yay { 30% { transform: translateY(-14px) rotate(-6deg); } 60% { transform: translateY(0) rotate(4deg); } }
+.buddy.oops svg { animation: oops .5s ease; } @keyframes oops { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.q { background: var(--card); border-radius: 20px; padding: 18px; box-shadow: 0 0 0 2px var(--line) inset, 0 4px 0 var(--line); margin-bottom: 14px; border-top: 6px solid var(--c); }
+.q p { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.9; }
+.q .big { font-family: var(--display); font-weight: 800; font-size: 40px; line-height: 1.4; text-align: center; margin: 6px 0 2px; color: var(--c); word-break: keep-all; overflow-wrap: anywhere; }
+.q .fig { display: block; width: 100%; max-width: 300px; margin: 10px auto 0; color: var(--ink); }
+.fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; line-height: 1.15; margin: 0 2px; }
+.fr i { font-style: normal; padding: 0 3px; }
+.fr i:first-child { border-bottom: 2px solid currentColor; }
+.choices { display: grid; gap: 9px; }
+.ch { border: 0; text-align: left; background: var(--card); border-radius: 16px; padding: 12px 16px; font-weight: 700; font-size: 17px; line-height: 1.6; box-shadow: 0 0 0 2px var(--line) inset, 0 3px 0 var(--line); display: flex; gap: 12px; align-items: center; min-height: 56px; }
+.ch .n { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--bg); display: grid; place-items: center; font-size: 13px; color: var(--sub); font-family: var(--display); }
+.ch.ok { background: var(--ok-bg); box-shadow: 0 0 0 3px var(--ok) inset; }
+.ch.ng { background: var(--ng-bg); box-shadow: 0 0 0 3px var(--ng) inset; }
+.inrow { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px; font-family: var(--display); font-weight: 800; font-size: 18px; }
+.inbox { min-width: 120px; min-height: 58px; border: 0; border-radius: 14px; background: var(--card); box-shadow: 0 0 0 2.5px var(--line) inset; font-family: var(--display); font-weight: 800; font-size: 32px; padding: 2px 14px; }
+.inbox.on { box-shadow: 0 0 0 3px #2f6fd0 inset; }
+.inrow.ok .inbox { background: var(--ok-bg); box-shadow: 0 0 0 3px var(--ok) inset; }
+.inrow.ng .inbox { background: var(--ng-bg); box-shadow: 0 0 0 3px var(--ng) inset; }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 360px; margin: 0 auto; }
+.key { border: 0; border-radius: 14px; min-height: 56px; background: var(--card); font-family: var(--display); font-weight: 800; font-size: 24px; box-shadow: 0 0 0 1.5px var(--line) inset, 0 3px 0 var(--line); }
+.key.go { grid-column: 1 / -1; background: #2f6fd0; color: #fff; font-size: 20px; box-shadow: 0 4px 0 #1f4e98; }
+.fb { margin-top: 14px; border-radius: 18px; padding: 14px 16px; }
+.fb.ok { background: var(--ok-bg); } .fb.ng { background: var(--ng-bg); }
+.fb > b { font-family: var(--display); font-size: 22px; display: block; }
+.fb p { margin: 6px 0 0; font-size: 16px; }
+.fb p .c { font-weight: 800; font-size: 19px; }
+.fb .e { color: #4a4660; font-size: 15px; }
+.fb .btn { margin-top: 12px; width: 100%; }
+.btn { flex: 1; border: 0; border-radius: 14px; padding: 13px 10px; font-family: var(--display); font-weight: 800; font-size: 17px; background: var(--card); box-shadow: 0 0 0 1.5px var(--line) inset, 0 3px 0 var(--line); }
+.btn.main { background: #ff8a3d; color: #fff; box-shadow: 0 4px 0 #c95f1b; }
+.btns { display: flex; gap: 10px; margin: 14px 0; }
+
+/* けっか */
+.res { text-align: center; background: var(--card); border-radius: 24px; padding: 18px 16px 20px; box-shadow: 0 0 0 2px var(--line) inset, 0 4px 0 var(--line); }
+.res .score { font-family: var(--display); font-weight: 800; font-size: 54px; line-height: 1.1; }
+.res .score small { font-size: 22px; color: var(--sub); }
+.res h2 { font-family: var(--display); font-size: 26px; margin: 6px 0; color: #3a2f7a; }
+.res.miss h2 { color: var(--sub); }
+.reveal { position: relative; width: 200px; margin: 0 auto; }
+.reveal.popin svg { animation: popin .7s cubic-bezier(.3,1.6,.5,1); }
+@keyframes popin { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.flash { position: absolute; inset: -30px; border-radius: 50%; background: radial-gradient(circle, #fff9c4 0, rgba(255,240,150,.6) 40%, transparent 70%); animation: flash 1.2s ease-out forwards; pointer-events: none; }
+@keyframes flash { 0% { transform: scale(.3); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+.nm { font-size: 17px; margin: 6px 0 0; } .nm b { font-family: var(--display); font-size: 21px; color: #3a2f7a; }
+.hint { display: inline-block; margin: 8px 0 0; background: #fff3c4; border-radius: 999px; padding: 3px 14px; font-weight: 700; font-size: 14px; }
+.mh { font-family: var(--display); margin: 8px 0 8px; }
+.miss { display: grid; gap: 8px; }
+.miss > div { background: var(--card); border-radius: 14px; padding: 10px 14px; box-shadow: 0 0 0 1.5px var(--line) inset; }
+.miss p { margin: 0; }
+
+/* ずかん */
+.zh { font-family: var(--display); color: var(--c); margin: 18px 0 8px; font-size: 18px; }
+.zgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.zc { border: 0; background: var(--card); border-radius: 16px; padding: 8px 6px 6px; box-shadow: 0 0 0 1.5px var(--line) inset, 0 3px 0 var(--line); display: grid; gap: 2px; justify-items: center; }
+.zc svg { width: 78px; }
+.zc small { font-size: 11px; font-weight: 700; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+.zc.kira { background: linear-gradient(150deg, #fffbe0, #ffe9f6); box-shadow: 0 0 0 2px var(--gold) inset, 0 3px 0 #e2c766; }
+.zc.sil small { color: var(--sub); }
+.modal { position: fixed; inset: 0; z-index: 50; background: rgba(30,20,60,.5); display: grid; place-items: center; padding: 16px; }
+.sheet { background: var(--card); border-radius: 24px; padding: 18px; width: 100%; max-width: 420px; max-height: 92vh; overflow: auto; text-align: center; border-top: 8px solid var(--c); }
+.dbig { width: 190px; margin: 0 auto; }
+.sheet h3 { margin: 4px 0 0; font-family: var(--display); font-size: 24px; color: #3a2f7a; }
+.sub { color: var(--sub); font-size: 14px; margin: 4px 0; }
+.forms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0; }
+.forms div { background: #f6f0e2; border-radius: 14px; padding: 6px; display: grid; justify-items: center; }
+.forms svg { width: 76px; }
+.forms small { font-size: 11px; font-weight: 700; }
+
+@media (max-width: 400px) {
+  .hero { grid-template-columns: 116px 1fr; } .stage { width: 116px; }
+  .subj b { font-size: 21px; }
+  .q .big { font-size: 34px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<div id="app"></div>
+<script src="furi.js"></script>
+<script src="data/units.js"></script>
+<script src="app.js"></script>

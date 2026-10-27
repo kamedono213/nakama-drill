@@ -1,0 +1,25 @@
+# 算数は問題をその場で作る(app.js の GEN)。「@unit id|算数|学年|単元名|なかまの名前|gen:作り方」
+@unit m-tashi|算数|1|たしざん|タシピー/タシドラ/タシドラゴン|gen:tashi
+@unit m-hiki|算数|1|ひきざん|ヒキッコ/ヒキドラ/ヒキドラゴン|gen:hiki
+@unit m-tashi2|算数|2|2けたのたし算|ニケタン/ニケタドラ/ニケタドラゴン|gen:tashi2
+@unit m-hiki2|算数|2|2けたのひき算|クリサガリン/クリサガドラ/クリサガドラゴン|gen:hiki2
+@unit m-kuku1|算数|2|九九(2〜5のだん)|クックル/クックドラ/クックドラゴン|gen:kuku1
+@unit m-kuku2|算数|2|九九(6〜9のだん)|ハックル/ハックドラ/ハックドラゴン|gen:kuku2
+@unit m-wari|算数|3|わり算|ワリワリ/ワリドラ/ワリドラゴン|gen:wari
+@unit m-amari|算数|3|あまりのあるわり算|アマリン/アマリドラ/アマリドラゴン|gen:amari
+@unit m-kakehissan|算数|3|かけ算の筆算|ヒッサン/ヒッサンドラ/ヒッサンドラゴン|gen:kakehissan
+@unit m-wari2|算数|4|2けたでわるわり算|タテルン/タテドラ/タテドラゴン|gen:wari2
+@unit m-shosu4|算数|4|小数のたし算・ひき算|テンテン/テンドラ/テンドラゴン|gen:shosu4
+@unit m-gaisu|算数|4|がい数|ガイスー/ガイスドラ/ガイスドラゴン|gen:gaisu
+@unit m-junjo|算数|4|計算のじゅんじょ|カッコン/カッコドラ/カッコドラゴン|gen:junjo
+@unit m-shokake|算数|5|小数のかけ算|ショースー/ショースドラ/ショースドラゴン|gen:shokake
+@unit m-showari|算数|5|小数のわり算|シフトン/シフトドラ/シフトドラゴン|gen:showari
+@unit m-bunsu5|算数|5|分数のたし算・ひき算|ツウブン/ツウブンドラ/ツウブンドラゴン|gen:bunsu5
+@unit m-wariai|算数|5|割合と百分率|パーセン/パーセドラ/パーセドラゴン|gen:wariai
+@unit m-heikin|算数|5|平均|ナラシー/ナラシドラ/ナラシドラゴン|gen:heikin
+@unit m-menseki|算数|5|図形の面積|メンセキン/メンセドラ/メンセドラゴン|gen:menseki
+@unit m-bunkake|算数|6|分数のかけ算|ヤクブン/ヤクブドラ/ヤクブンドラゴン|gen:bunkake
+@unit m-bunwari|算数|6|分数のわり算|ギャクスー/ギャクドラ/ギャクスードラゴン|gen:bunwari
+@unit m-hi|算数|6|比|ヒッピ/ヒッピドラ/ヒッピドラゴン|gen:hi
+@unit m-en|算数|6|円の面積|エンパイ/パイドラ/パイドラゴン|gen:en
+@unit m-hayasa|算数|6|速さ|ハヤサン/ソクドラ/ソクドラゴン|gen:hayasa
