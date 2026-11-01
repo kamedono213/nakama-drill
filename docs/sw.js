@@ -1,9 +1,9 @@
 // 自動生成(tools/build-pages.js)。手で編集しない。
-const CACHE = 'nakama-46f0c06736';
+const CACHE = 'nakama-eea7daf52a';
 const PRECACHE = ["./","app.js","data/illusts.js","data/units.js","furi.js","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/maskable-512.png","illust/ill01.jpg","illust/ill02.jpg","illust/ill03.jpg","manifest.webmanifest"];
 const LIBS = [];
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE.concat(LIBS))).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE.concat(LIBS).map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('nakama-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));

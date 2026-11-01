@@ -32,7 +32,13 @@ ${head.trim()}
 <body>
 ${body.trim()}
 <script>
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+// 新しい版が入ったら自動で読みなおす。アプリにもどってきたときも 新しい版がないか たしかめる
+if ('serviceWorker' in navigator) window.addEventListener('load', () => {
+  const had = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js').then(r => { r.update(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') r.update(); }); }).catch(() => {});
+  let done = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !done) { done = true; location.reload(); } });
+});
 </script>
 </body>
 </html>
@@ -57,7 +63,7 @@ fs.writeFileSync(path.join(OUT, 'manifest.webmanifest'), JSON.stringify({
   ],
 }, null, 2));
 
-// サービスワーカー: 初回にアプリ一式を保存し、以後はオフラインでも動く。
+// サービスワーカー: 初回にアプリ一式を保存し(ブラウザの古いキャッシュを使わず、かならず取りなおす)、以後はオフラインでも動く。
 // キャッシュ名に中身のハッシュを入れ、更新があれば自動で入れ替わる。
 const files = [];
 (function walk(d, rel) {
@@ -77,7 +83,7 @@ const CACHE = 'nakama-${version}';
 const PRECACHE = ${JSON.stringify(precache)};
 const LIBS = ${JSON.stringify(libs)};
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE.concat(LIBS))).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE.concat(LIBS).map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('nakama-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
