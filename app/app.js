@@ -263,33 +263,6 @@ if (!S.sg) S.sg = 3;
 const pieces = id => S.st[id] || 0;
 const has = (id, i) => (pieces(id) >> i & 1) === 1;
 const done = id => pieces(id) === FULL;
-// ---------- 追加の章(家で使うだけの画像のパック。この端末の中だけに保存し、公開サイトには画像を置かない。1回読みこめば ふつうの章と同じ)
-// パックは tools/make-pack.js が作る JSON。読みこむと IndexedDB に入り、公開の章のあとに しょうとして足される
-const PUB = ILL.length, PACK_DB = 'nakama-drill-pack';
-function idb() {
-  return new Promise((res, rej) => { const r = indexedDB.open(PACK_DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('items', { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
-}
-async function packGet() {
-  try { const db = await idb(); return await new Promise((res, rej) => { const q = db.transaction('items').objectStore('items').getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
-  catch (e) { return []; }
-}
-async function packPut(items) {
-  const db = await idb();
-  await new Promise((res, rej) => { const tx = db.transaction('items', 'readwrite'), st = tx.objectStore('items'); st.clear(); items.forEach(x => st.put(x)); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
-}
-function addPack(items) {
-  ILL.splice(PUB).forEach(x => { delete illById[x.id]; URL.revokeObjectURL(x.file); });
-  items.slice().sort((a, b) => a.n - b.n).forEach(x => { const it = { ...x, file: URL.createObjectURL(x.blob), pack: true }; delete it.blob; ILL.push(it); illById[it.id] = it; });
-}
-async function importPack(file) {
-  const j = JSON.parse(await file.text());
-  if (j.type !== 'nakama-pack' || !Array.isArray(j.items)) throw new Error('bad');
-  const items = [];
-  for (const [n, x] of j.items.entries()) items.push({ id: x.id, n, name: x.name, place: x.place, hand: x.hand, num: x.num, fx: x.fx, w: x.w, h: x.h, blob: await (await fetch(x.data)).blob() });
-  await packPut(items);
-  addPack(items);
-  return items.length;
-}
 const pieceCount = id => { let m = pieces(id), n = 0; while (m) { n += m & 1; m >>= 1; } return n; };
 const chapterOpen = ci => ci === 0 || done(ILL[ci - 1].id);
 const stageOpen = (id, i) => i === 0 || has(id, i - 1) || has(id, i);
@@ -945,20 +918,10 @@ function storyTop() {
         ${open && n ? puzzleHTML(x, done(x.id) ? 'whole' : '') : `<div class="pz none" style="aspect-ratio:${x.w} / ${x.h}"><b>${open ? '？' : '🔒'}</b></div>`}
         <span class="txt"><b>${ci + 1}しょう ${esc(x.place)}</b><small>${done(x.id) ? `✅ ${esc(x.name)}` : open ? `ピース ${n} / 9` : `${ci}しょうを クリアすると ひらく`}</small></span></button>`;
     }).join('')}</div>
-    <p class="foot">学年をかえると、ステージの問題が その学年のものになるよ(もらったピースは そのまま)。</p>
-    ${ILL.length > PUB ? '' : `<section class="spell"><h3>📦 章をふやす(おうちの人用)</h3><p class="sub">もらったファイルを1回読みこむと、この端末に 章がふえるよ。あとは ふつうに クリアして すすめてね。</p>
-      <label class="btn main wide filebtn">ファイルから読みこむ<input type="file" accept=".json,application/json" id="packf" hidden></label><p class="msg" id="pmsg"></p></section>`}`;
+    <p class="foot">学年をかえると、ステージの問題が その学年のものになるよ(もらったピースは そのまま)。</p>`;
   app.querySelector('#back').onclick = back;
   app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { S.sg = +b.dataset.g; save(); SE.play('select'); storyTop(); });
   app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { SE.play('select'); go({ s: 'map', c: +b.dataset.c }); });
-  const pm = app.querySelector('#pmsg');
-  const pf = app.querySelector('#packf');
-  if (pf) pf.onchange = async e => {
-    const f = e.target.files[0]; if (!f) return;
-    pm.textContent = '読みこみ中…';
-    try { const n = await importPack(f); SE.play('perfect'); storyTop(); alert(`章が ${n}しょう ふえたよ！`); }
-    catch (err) { pm.textContent = 'このファイルは 読みこめなかったよ'; SE.play('ng'); }
-  };
 }
 // マップのステージの位置(下から上へ、くねくね進む)。横・たて とも%
 const MAP_PTS = [[22, 90], [55, 84], [80, 72], [52, 62], [20, 52], [42, 40], [76, 32], [54, 19], [24, 9]];
@@ -1093,4 +1056,4 @@ function spellScreen() {
 
 // ---------- はじまり
 history.replaceState({ s: 'home' }, '');
-packGet().then(addPack).catch(() => {}).finally(home);
+home();
