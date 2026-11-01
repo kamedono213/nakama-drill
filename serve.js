@@ -5,7 +5,7 @@ const path = require('path');
 // 引数 docs で PWA版(docs/)を、なしで Artifact 用(app/)を配信する
 const site = process.argv[2] || 'app';
 const root = path.join(__dirname, site);
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json' };
 http.createServer((req, res) => {
   const p = decodeURIComponent(req.url.split('?')[0]);
   const file = path.join(root, p === '/' ? 'index.html' : p);
