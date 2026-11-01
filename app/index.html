@@ -213,7 +213,9 @@ button:disabled { cursor: default; }
 .mode .ic { font-size: 32px; line-height: 1.2; } .mode b { font-size: 21px; font-weight: 800; } .mode small { font-size: 13px; font-weight: 700; opacity: .9; }
 .mode.story { background: linear-gradient(160deg, #3fa66b, #23744a); box-shadow: 0 4px 0 #185436; }
 .mode.battle { background: linear-gradient(160deg, #e2533d, #a8321f); box-shadow: 0 4px 0 #7a2214; }
-.mode:active, .chap:active, .node:active, .pickc:active { transform: translateY(2px); }
+.mode:active, .chap:active, .pickc:active { transform: translateY(2px); }
+/* .node は位置合わせに transform を使うので、押したときも translate(-50%,-50%) を残す(消すと指の下からずれて click が届かない) */
+.node:active { transform: translate(-50%, calc(-50% + 2px)); }
 .pz { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 2px; width: 100%; background: #3a2f7a; border-radius: 12px; overflow: hidden; padding: 2px; }
 .pz i { display: block; background-size: 300% 300%; background-repeat: no-repeat; border-radius: 3px; }
 .pz i.no { display: grid; place-items: center; background: repeating-linear-gradient(45deg, #4a3f8f 0 6px, #43398a 6px 12px); }

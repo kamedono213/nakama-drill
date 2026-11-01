@@ -1,5 +1,5 @@
 // 自動生成(tools/build-pages.js)。手で編集しない。
-const CACHE = 'nakama-4dd9460156';
+const CACHE = 'nakama-944e4ca5a2';
 const PRECACHE = ["./","app.js","data/illusts.js","data/units.js","furi.js","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/maskable-512.png","illust/ill01.jpg","illust/ill02.jpg","illust/ill03.jpg","manifest.webmanifest"];
 const LIBS = [];
 self.addEventListener('install', e => {
