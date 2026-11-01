@@ -336,6 +336,11 @@ function look(u) {
     body: `hsl(${hue} 72% 64%)`, dark: `hsl(${hue} 50% 34%)`, shade: `hsl(${hue} 60% 54%)`,
     belly: `hsl(${hue} 90% 90%)`, acc: `hsl(${hue2} 80% 58%)`, acc2: `hsl(${hue2} 85% 75%)`,
     eye: Math.floor(r() * 3), pat: Math.floor(r() * 3), fang: r() < 0.5, hue,
+    // 2026-11-02 追加: 同じ形ばかりにならないよう、体つき・目・口・もよう・かざりも単元ごとに変える
+    // (上の値の出る順番は変えない。変えると今までのなかまの色が変わる)
+    bw: 30 + Math.floor(r() * 9), bh: 27 + Math.floor(r() * 10), gap: 9 + Math.floor(r() * 6),
+    eye2: Math.floor(r() * 6), mouth: Math.floor(r() * 4), pat2: Math.floor(r() * 6), deco: Math.floor(r() * 8),
+    shape: Math.floor(r() * 3), ears: Math.floor(r() * 5),
   };
 }
 function nakamaSVG(u, form, kira, cls = '') {
@@ -384,14 +389,50 @@ function nakamaSVG(u, form, kira, cls = '') {
     if (f === 3) head.push(`<path d="M44 36 L48 24 L54 32 L60 20 L66 32 L72 24 L76 36 Z" fill="#ffd34d" stroke="#b07d00" stroke-width="2" stroke-linejoin="round"/>`);
   }
   // からだの もよう
-  const pat = L.pat === 1 ? `<circle cx="42" cy="58" r="4" fill="${L.shade}"/><circle cx="80" cy="56" r="3" fill="${L.shade}"/><circle cx="84" cy="70" r="4.5" fill="${L.shade}"/><circle cx="37" cy="74" r="3" fill="${L.shade}"/>`
+  const by = 104 - L.bh; // 体の中心(足もとの高さは そろえる)
+  const bodyD = L.shape === 1 ? `M60 ${by - L.bh} C${60 + L.bw * 0.75} ${by - L.bh} ${60 + L.bw * 1.08} ${by + L.bh * 0.35} ${60 + L.bw} ${by + L.bh * 0.6} C${60 + L.bw * 0.85} ${by + L.bh} ${60 - L.bw * 0.85} ${by + L.bh} ${60 - L.bw} ${by + L.bh * 0.6} C${60 - L.bw * 1.08} ${by + L.bh * 0.35} ${60 - L.bw * 0.75} ${by - L.bh} 60 ${by - L.bh} Z`
+    : L.shape === 2 ? `M${60 - L.bw} ${by} V${by - L.bh + 14} Q${60 - L.bw} ${by - L.bh} ${60 - L.bw + 14} ${by - L.bh} H${60 + L.bw - 14} Q${60 + L.bw} ${by - L.bh} ${60 + L.bw} ${by - L.bh + 14} V${by + L.bh - 12} Q${60 + L.bw} ${by + L.bh} ${60 + L.bw - 12} ${by + L.bh} H${60 - L.bw + 12} Q${60 - L.bw} ${by + L.bh} ${60 - L.bw} ${by + L.bh - 12} Z`
+    : `M${60 - L.bw} ${by} a${L.bw} ${L.bh} 0 1 0 ${L.bw * 2} 0 a${L.bw} ${L.bh} 0 1 0 ${-L.bw * 2} 0 Z`;
+  // 耳(なし/ねこ/うさぎ/くま/アンテナ)。体のうしろに かく
+  const t = by - L.bh, ear = [
+    '',
+    [-1, 1].map(k => `<path d="M${60 + k * L.bw * 0.45} ${t + 8} L${60 + k * L.bw * 0.75} ${t - 12} L${60 + k * L.bw * 0.95} ${t + 12} Z" fill="${L.body}" stroke="${L.dark}" stroke-width="2.2" stroke-linejoin="round"/>`).join(''),
+    [-1, 1].map(k => `<ellipse cx="${60 + k * 11}" cy="${t - 12}" rx="6" ry="17" transform="rotate(${k * 12} ${60 + k * 11} ${t - 12})" fill="${L.body}" stroke="${L.dark}" stroke-width="2.2"/><ellipse cx="${60 + k * 11}" cy="${t - 12}" rx="2.6" ry="11" transform="rotate(${k * 12} ${60 + k * 11} ${t - 12})" fill="#ffb3c6"/>`).join(''),
+    [-1, 1].map(k => `<circle cx="${60 + k * L.bw * 0.72}" cy="${t + 5}" r="9" fill="${L.body}" stroke="${L.dark}" stroke-width="2.2"/><circle cx="${60 + k * L.bw * 0.72}" cy="${t + 5}" r="4.5" fill="${L.belly}"/>`).join(''),
+    `<path d="M60 ${t + 2} Q56 ${t - 10} 64 ${t - 16}" fill="none" stroke="${L.dark}" stroke-width="2.2"/><circle cx="64" cy="${t - 17}" r="4.5" fill="${L.acc}" stroke="${L.dark}" stroke-width="2"/>`,
+  ][L.ears];
+  const pat = L.pat2 === 3 ? `<path d="M${60 - L.bw + 4} ${by - 6} Q60 ${by - 12} ${60 + L.bw - 4} ${by - 6}" fill="none" stroke="${L.acc}" stroke-width="5" stroke-linecap="round" opacity=".7"/><path d="M${60 - L.bw + 6} ${by + 4} Q60 ${by - 2} ${60 + L.bw - 6} ${by + 4}" fill="none" stroke="${L.acc}" stroke-width="5" stroke-linecap="round" opacity=".7"/>`
+    : L.pat2 === 4 ? `<path d="M60 ${by + 8} c-4 -6 -12 -2 -8 4 l8 8 l8 -8 c4 -6 -4 -10 -8 -4 Z" fill="${L.acc2}" stroke="${L.dark}" stroke-width="1.5"/>`
+    : L.pat2 === 5 ? `<ellipse cx="60" cy="${by - 6}" rx="${L.bw * 0.78}" ry="${L.bh * 0.42}" fill="${L.acc2}" opacity=".55"/>`
+    : L.pat === 1 ? `<circle cx="42" cy="58" r="4" fill="${L.shade}"/><circle cx="80" cy="56" r="3" fill="${L.shade}"/><circle cx="84" cy="70" r="4.5" fill="${L.shade}"/><circle cx="37" cy="74" r="3" fill="${L.shade}"/>`
     : L.pat === 2 ? `<path d="M34 62 q4 -3 8 0 M78 62 q4 -3 8 0 M33 72 q4 -3 8 0 M79 72 q4 -3 8 0" fill="none" stroke="${L.shade}" stroke-width="3" stroke-linecap="round"/>` : '';
-  const eyeY = 64, ex = [48, 72];
-  const eyes = ex.map(x => L.eye === 2
+  const eyeY = by - 8, ex = [60 - L.gap, 60 + L.gap];
+  const eyes = L.eye2 === 3 ? ex.map(x => `<path d="M${x - 6} ${eyeY} H${x + 6}" stroke="#2a2233" stroke-width="3" stroke-linecap="round"/><path d="M${x - 5} ${eyeY - 4} l-3 -3 M${x + 5} ${eyeY - 4} l3 -3" stroke="#2a2233" stroke-width="1.6" stroke-linecap="round"/>`).join('')
+    : L.eye2 === 4 ? ex.map(x => `<circle cx="${x}" cy="${eyeY}" r="7.5" fill="#fff" stroke="#2a2233" stroke-width="1.5"/><path d="M${x} ${eyeY - 5} l1.6 3.4 3.6 .5 -2.6 2.5 .6 3.6 -3.2 -1.7 -3.2 1.7 .6 -3.6 -2.6 -2.5 3.6 -.5 Z" fill="${L.acc}"/>`).join('')
+    : L.eye2 === 5 ? `<ellipse cx="60" cy="${eyeY - 2}" rx="10" ry="11" fill="#fff" stroke="#2a2233" stroke-width="2"/><circle cx="62" cy="${eyeY}" r="6" fill="#2a2233"/><circle cx="64" cy="${eyeY - 3}" r="2.2" fill="#fff"/>`
+    : ex.map(x => L.eye === 2
     ? `<path d="M${x - 6} ${eyeY + 1} Q${x} ${eyeY - 7} ${x + 6} ${eyeY + 1}" fill="none" stroke="#2a2233" stroke-width="3" stroke-linecap="round"/>`
     : `<ellipse cx="${x}" cy="${eyeY}" rx="${L.eye ? 5.2 : 6.2}" ry="${L.eye ? 7.4 : 6.6}" fill="#2a2233"/><circle cx="${x + 2}" cy="${eyeY - 2.6}" r="2.2" fill="#fff"/><circle cx="${x - 2}" cy="${eyeY + 2.6}" r="1.1" fill="#fff"/>`).join('');
-  const beak = fam === 'kokugo' ? `<path d="M55 71 L65 71 L60 78 Z" fill="#ffb22e" stroke="#a8620a" stroke-width="1.8" stroke-linejoin="round"/>`
-    : `<path d="M54 73 Q60 78 66 73" fill="none" stroke="#2a2233" stroke-width="2.4" stroke-linecap="round"/>${L.fang && fam === 'sansu' ? '<path d="M62 75 L64 79 L65.6 74.4 Z" fill="#fff" stroke="#2a2233" stroke-width="1"/>' : ''}`;
+  const beak = fam === 'kokugo' ? `<path d="M55 ${by - 1} L65 ${by - 1} L60 ${by + 6} Z" fill="#ffb22e" stroke="#a8620a" stroke-width="1.8" stroke-linejoin="round"/>`
+    : L.mouth === 1 ? `<path d="M54 ${by + 1} Q60 ${by + 11} 66 ${by + 1} Z" fill="#7a2a3a" stroke="#2a2233" stroke-width="2" stroke-linejoin="round"/><ellipse cx="60" cy="${by + 6}" rx="3.5" ry="2" fill="#ff8fa8"/>`
+    : L.mouth === 2 ? `<path d="M53 ${by + 1} Q56.5 ${by + 5} 60 ${by + 1} Q63.5 ${by + 5} 67 ${by + 1}" fill="none" stroke="#2a2233" stroke-width="2.2" stroke-linecap="round"/>`
+    : L.mouth === 3 ? `<ellipse cx="60" cy="${by + 3}" rx="3" ry="3.6" fill="#7a2a3a" stroke="#2a2233" stroke-width="1.6"/>`
+    : `<path d="M54 ${by + 1} Q60 ${by + 6} 66 ${by + 1}" fill="none" stroke="#2a2233" stroke-width="2.4" stroke-linecap="round"/>${L.fang && fam === 'sansu' ? `<path d="M62 ${by + 3} L64 ${by + 7} L65.6 ${by + 2.4} Z" fill="#fff" stroke="#2a2233" stroke-width="1"/>` : ''}`;
+  // かざり(なし/リボン/めがね/ほし/はっぱ/ちょうネクタイ/ほっぺのうずまき/ぼうし)。頭の上は y=40 が体のてっぺん
+  const deco = [
+    '',
+    `<path d="M60 42 l-11 -7 v14 Z M60 42 l11 -7 v14 Z" fill="${L.acc}" stroke="${L.dark}" stroke-width="1.6" stroke-linejoin="round"/><circle cx="60" cy="42" r="3.5" fill="${L.acc2}" stroke="${L.dark}" stroke-width="1.4"/>`,
+    '',
+    `<path d="M74 46 l2.4 5 5.4 .8 -3.9 3.8 .9 5.4 -4.8 -2.5 -4.8 2.5 .9 -5.4 -3.9 -3.8 5.4 -.8 Z" fill="#ffd84a" stroke="#b07d00" stroke-width="1.3"/>`,
+    `<path d="M60 40 q-2 -10 6 -14 q4 8 -6 14 Z" fill="#6cc24a" stroke="#2f7a24" stroke-width="1.5"/>`,
+    '',
+    '',
+    `<path d="M46 42 q14 -12 28 0 Z" fill="${L.acc}" stroke="${L.dark}" stroke-width="1.6"/><rect x="56" y="24" width="8" height="8" rx="2" fill="${L.acc2}" stroke="${L.dark}" stroke-width="1.4"/>`,
+  ][L.deco];
+  // 体の前に つけるかざり(めがね・ちょうネクタイ・うずまき)
+  const deco2 = L.deco === 2 ? `<circle cx="${ex[0]}" cy="${eyeY}" r="9" fill="none" stroke="#2a2233" stroke-width="2"/><circle cx="${ex[1]}" cy="${eyeY}" r="9" fill="none" stroke="#2a2233" stroke-width="2"/><path d="M${ex[0] + 9} ${eyeY} H${ex[1] - 9}" stroke="#2a2233" stroke-width="2"/>`
+    : L.deco === 5 ? `<path d="M60 ${by + 13} l-9 -5 v10 Z M60 ${by + 13} l9 -5 v10 Z" fill="${L.acc}" stroke="${L.dark}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="60" cy="${by + 13}" r="2.6" fill="${L.acc2}"/>`
+    : L.deco === 6 ? [60 - L.bw + 10, 60 + L.bw - 10].map(x => `<path d="M${x} ${by + 2} m-4 0 a4 4 0 1 1 4 4 a2 2 0 1 1 -2 -2" fill="none" stroke="#ff7aa2" stroke-width="1.6"/>`).join('') : '';
   const id = 'g' + hash(u.id + f + kira).toString(36);
   const kiraDefs = kira ? `<linearGradient id="${id}k" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3a8"/><stop offset=".5" stop-color="#ffc83d"/><stop offset="1" stop-color="#ff9ee0"/></linearGradient>` : '';
   const spark = (x, y, s, d) => `<path class="tw" style="animation-delay:${d}s" d="M${x} ${y - s} Q${x} ${y} ${x + s} ${y} Q${x} ${y} ${x} ${y + s} Q${x} ${y} ${x - s} ${y} Q${x} ${y} ${x} ${y - s} Z" fill="#ffd84a" stroke="#fff" stroke-width=".8"/>`;
@@ -402,15 +443,15 @@ ${kira ? `<circle cx="60" cy="68" r="56" fill="url(#${id}k)" opacity=".45"/>` : 
 <g transform="translate(60 72) scale(${sc}) translate(-60 -72)">
 ${back.join('')}
 <ellipse cx="46" cy="100" rx="9" ry="6" fill="${L.shade}" ${st}/><ellipse cx="74" cy="100" rx="9" ry="6" fill="${L.shade}" ${st}/>
-<ellipse cx="60" cy="72" rx="34" ry="32" fill="${L.body}" stroke="${kira ? `url(#${id}k)` : L.dark}" stroke-width="${kira ? 4.5 : 2.6}"/>
-<ellipse cx="60" cy="84" rx="20" ry="16" fill="${L.belly}"/>
+${ear}<path d="${bodyD}" fill="${L.body}" stroke="${kira ? `url(#${id}k)` : L.dark}" stroke-width="${kira ? 4.5 : 2.6}" stroke-linejoin="round"/>
+${L.pat2 === 4 ? '' : `<ellipse cx="60" cy="${by + L.bh * 0.38}" rx="${L.bw * 0.6}" ry="${L.bh * 0.5}" fill="${L.belly}"/>`}
 ${fam === 'sansu' ? `<path d="M46 80 H74 M44 87 H76 M48 94 H72" stroke="${L.shade}" stroke-width="2" opacity=".55"/>` : ''}
 ${pat}
-<ellipse cx="60" cy="72" rx="34" ry="32" fill="url(#${id})"/>
-${head.join('')}
+<path d="${bodyD}" fill="url(#${id})"/>
+<g transform="translate(0 ${by - L.bh - 40})">${head.join('')}${deco}</g>
 ${eyes}
-<ellipse cx="40" cy="74" rx="5" ry="3" fill="#ff7aa2" opacity=".55"/><ellipse cx="80" cy="74" rx="5" ry="3" fill="#ff7aa2" opacity=".55"/>
-${beak}
+${L.deco === 6 ? '' : `<ellipse cx="${60 - L.gap - 9}" cy="${by + 2}" rx="5" ry="3" fill="#ff7aa2" opacity=".55"/><ellipse cx="${60 + L.gap + 9}" cy="${by + 2}" rx="5" ry="3" fill="#ff7aa2" opacity=".55"/>`}
+${beak}${deco2}
 ${front.join('')}
 </g>
 ${kira ? spark(18, 26, 7, 0) + spark(102, 34, 5, 0.5) + spark(98, 98, 6, 1) + spark(16, 88, 4.5, 1.4) : ''}
