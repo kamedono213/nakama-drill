@@ -5,8 +5,8 @@ window.ND_ILL = [
   "file": "illust/ill01.jpg",
   "w": 1200,
   "h": 800,
-  "name": "ほのおのドラゴン",
-  "place": "ドラゴンのいわやま",
+  "name": "炎竜ヴォルカノス",
+  "place": "ほのおの岩山",
   "hand": "p",
   "num": 8
  },
@@ -15,9 +15,19 @@ window.ND_ILL = [
   "file": "illust/ill02.jpg",
   "w": 1200,
   "h": 1200,
-  "name": "こおりのドラゴン",
-  "place": "オーロラのひょうざん",
+  "name": "氷晶竜グレイシアス",
+  "place": "オーロラの氷山",
   "hand": "c",
+  "num": 9
+ },
+ {
+  "id": "ill03",
+  "file": "illust/ill03.jpg",
+  "w": 1200,
+  "h": 1200,
+  "name": "森王竜シルヴァリオン",
+  "place": "古代樹の遺跡",
+  "hand": "g",
   "num": 9
  }
 ];
