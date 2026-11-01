@@ -263,6 +263,33 @@ if (!S.sg) S.sg = 3;
 const pieces = id => S.st[id] || 0;
 const has = (id, i) => (pieces(id) >> i & 1) === 1;
 const done = id => pieces(id) === FULL;
+// ---------- ひみつの章(この端末の中だけに保存するイラストパック。公開サイトには画像を置かない)
+// パックは tools/make-pack.js が作る JSON。読みこむと IndexedDB に入り、公開の章のあとに しょうとして足される
+const PUB = ILL.length, PACK_DB = 'nakama-drill-pack';
+function idb() {
+  return new Promise((res, rej) => { const r = indexedDB.open(PACK_DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('items', { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+}
+async function packGet() {
+  try { const db = await idb(); return await new Promise((res, rej) => { const q = db.transaction('items').objectStore('items').getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+  catch (e) { return []; }
+}
+async function packPut(items) {
+  const db = await idb();
+  await new Promise((res, rej) => { const tx = db.transaction('items', 'readwrite'), st = tx.objectStore('items'); st.clear(); items.forEach(x => st.put(x)); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+}
+function addPack(items) {
+  ILL.splice(PUB).forEach(x => { delete illById[x.id]; URL.revokeObjectURL(x.file); });
+  items.slice().sort((a, b) => a.n - b.n).forEach(x => { const it = { ...x, file: URL.createObjectURL(x.blob), pack: true }; delete it.blob; ILL.push(it); illById[it.id] = it; });
+}
+async function importPack(file) {
+  const j = JSON.parse(await file.text());
+  if (j.type !== 'nakama-pack' || !Array.isArray(j.items)) throw new Error('bad');
+  const items = [];
+  for (const [n, x] of j.items.entries()) items.push({ id: x.id, n, name: x.name, place: x.place, hand: x.hand, num: x.num, fx: x.fx, w: x.w, h: x.h, blob: await (await fetch(x.data)).blob() });
+  await packPut(items);
+  addPack(items);
+  return items.length;
+}
 const pieceCount = id => { let m = pieces(id), n = 0; while (m) { n += m & 1; m >>= 1; } return n; };
 const chapterOpen = ci => ci === 0 || done(ILL[ci - 1].id);
 const stageOpen = (id, i) => i === 0 || has(id, i - 1) || has(id, i);
@@ -916,12 +943,25 @@ function storyTop() {
       const open = chapterOpen(ci), n = pieceCount(x.id);
       return `<button class="chap${open ? '' : ' lock'}${done(x.id) ? ' full' : ''}" data-c="${ci}" ${open ? '' : 'disabled'}>
         ${open && n ? puzzleHTML(x, done(x.id) ? 'whole' : '') : `<div class="pz none" style="aspect-ratio:${x.w} / ${x.h}"><b>${open ? '？' : '🔒'}</b></div>`}
-        <span class="txt"><b>${ci + 1}しょう ${esc(x.place)}</b><small>${done(x.id) ? `✅ ${esc(x.name)}` : open ? `ピース ${n} / 9` : `${ci}しょうを クリアすると ひらく`}</small></span></button>`;
+        <span class="txt"><b>${ci + 1}しょう ${esc(x.place)}${x.pack ? ' ✨' : ''}</b><small>${done(x.id) ? `✅ ${esc(x.name)}` : open ? `ピース ${n} / 9` : `${ci}しょうを クリアすると ひらく`}</small></span></button>`;
     }).join('')}</div>
-    <p class="foot">学年をかえると、ステージの問題が その学年のものになるよ(もらったピースは そのまま)。</p>`;
+    <p class="foot">学年をかえると、ステージの問題が その学年のものになるよ(もらったピースは そのまま)。</p>
+    <section class="spell"><h3>🔒 ひみつの章</h3><p class="sub">おうちの人から もらった ファイルを読みこむと、この端末の中だけに 章がふえるよ(インターネットには公開されない)。</p>
+      ${ILL.length > PUB ? `<p>いま ${ILL.length - PUB}しょう 入っている</p>` : ''}
+      <label class="btn main wide filebtn">📦 ファイルから読みこむ<input type="file" accept=".json,application/json" id="packf" hidden></label>
+      ${ILL.length > PUB ? '<button class="btn wide" id="packdel">ひみつの章を消す</button>' : ''}<p class="msg" id="pmsg"></p></section>`;
   app.querySelector('#back').onclick = back;
   app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { S.sg = +b.dataset.g; save(); SE.play('select'); storyTop(); });
   app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { SE.play('select'); go({ s: 'map', c: +b.dataset.c }); });
+  const pm = app.querySelector('#pmsg');
+  app.querySelector('#packf').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    pm.textContent = '読みこみ中…';
+    try { const n = await importPack(f); SE.play('perfect'); storyTop(); app.querySelector('#pmsg').textContent = `ひみつの章を ${n}しょう 入れたよ！`; }
+    catch (err) { pm.textContent = 'このファイルは 読みこめなかったよ'; SE.play('ng'); }
+  };
+  const pd = app.querySelector('#packdel');
+  if (pd) pd.onclick = async () => { if (!confirm('ひみつの章を この端末から消すよ。いい？(ピースの記録は のこる)')) return; await packPut([]); addPack([]); storyTop(); };
 }
 // マップのステージの位置(下から上へ、くねくね進む)。横・たて とも%
 const MAP_PTS = [[22, 90], [55, 84], [80, 72], [52, 62], [20, 52], [42, 40], [76, 32], [54, 19], [24, 9]];
@@ -1056,4 +1096,4 @@ function spellScreen() {
 
 // ---------- はじまり
 history.replaceState({ s: 'home' }, '');
-home();
+packGet().then(addPack).catch(() => {}).finally(home);
