@@ -8,7 +8,8 @@ window.ND_ILL = [
   "name": "炎竜ヴォルカノス",
   "place": "ほのおの岩山",
   "hand": "p",
-  "num": 8
+  "num": 8,
+  "fx": "triple"
  },
  {
   "id": "ill02",
@@ -18,7 +19,8 @@ window.ND_ILL = [
   "name": "氷晶竜グレイシアス",
   "place": "オーロラの氷山",
   "hand": "c",
-  "num": 9
+  "num": 9,
+  "fx": "minus2"
  },
  {
   "id": "ill03",
@@ -28,6 +30,7 @@ window.ND_ILL = [
   "name": "森王竜シルヴァリオン",
   "place": "古代樹の遺跡",
   "hand": "g",
-  "num": 9
+  "num": 9,
+  "fx": "guard"
  }
 ];

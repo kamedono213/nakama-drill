@@ -902,7 +902,7 @@ function illDetail(x) {
   modal(`${d ? `<img class="illbig" src="${x.file}" alt="${esc(x.name)}">` : puzzleHTML(x)}
     <h3>${d ? esc(x.name) : `${ci + 1}しょうの イラスト`}</h3>
     <p class="sub">${esc(x.place)}・ピース ${pieceCount(x.id)} / 9</p>
-    ${d ? `<div class="bcrow">${battleCard(illCard(x))}</div><p class="sub">バトルでは ${HAND[x.hand]} の ${x.num}</p>` : '<p class="sub">ストーリーで ステージをクリアして、ピースを集めよう</p>'}`, '#3a2f7a');
+    ${d ? `<div class="bcrow">${battleCard(illCard(x))}</div><p class="sub">バトルでは ${HAND[x.hand]} の ${x.num}</p>${x.fx && FX[x.fx] ? `<p class="note">${FX[x.fx].icon} <b>${FX[x.fx].name}</b>: ${FX[x.fx].text}</p>` : ''}` : '<p class="sub">ストーリーで ステージをクリアして、ピースを集めよう</p>'}`, '#3a2f7a');
 }
 
 // ---------- ストーリー: しょうをえらぶ → マップ(9ステージ)
@@ -950,14 +950,22 @@ function mapScreen(ci) {
 const HAND = { g: '✊ グー', c: '✌️ チョキ', p: '✋ パー' };
 const HICON = { g: '✊', c: '✌️', p: '✋' };
 const BEATS = { g: 'c', c: 'p', p: 'g' };
-const illCard = x => ({ k: 'ill', x, hand: x.hand, num: x.num, name: x.name });
+// イラストカードの効果(illusts.js の fx)。じぶんのカードだけが持つ
+const FX = {
+  triple: { icon: '🔥', name: 'もえあがる', text: 'ジャンケンで かつと、2ばいではなく3ばい' },
+  minus2: { icon: '❄️', name: 'こおらせる', text: 'あいての数字を2へらす' },
+  guard: { icon: '🌿', name: 'だいじゅの まもり', text: 'ジャンケンで まけても、あいては2ばいに ならない' },
+  tie: { icon: '⚡', name: 'いなずまの はやわざ', text: '数字が同じときは かち' },
+  plus2: { icon: '💀', name: 'やみの ちから', text: 'じぶんの数字を2ふやす' },
+};
+const illCard = x => ({ k: 'ill', x, hand: x.hand, num: x.num, name: x.name, fx: x.fx });
 // なかまのカード: 数字は 2〜5(進化するほど、キラだと強い)。手は なかまごとに決まっている
 const nkCard = (u, f, kira) => ({ k: 'nk', u, f, kira, hand: 'gcp'[hash(u.id) % 3], num: Math.min(5, f + 1 + (kira ? 1 : 0)), name: u.names[f - 1] });
 const eggCard = h => ({ k: 'egg', hand: h, num: 1, name: 'たまご' });
 function battleCard(c, cls = '') {
   const art = c.k === 'ill' ? `<span class="art" style="background-image:url(${c.x.file})"></span>`
     : c.k === 'nk' ? `<span class="art nk">${nakamaSVG(c.u, c.f, c.kira)}</span>` : `<span class="art nk">${eggSVG(UNITS[0])}</span>`;
-  return `<span class="bc ${c.k} ${cls}">${art}<span class="hd">${HICON[c.hand]}</span><span class="num">${c.num}</span><span class="nm3">${esc(c.name)}</span></span>`;
+  return `<span class="bc ${c.k} ${cls}">${art}<span class="hd">${HICON[c.hand]}</span><span class="num">${c.num}</span>${c.fx && FX[c.fx] ? `<span class="fxi">${FX[c.fx].icon}</span>` : ''}<span class="nm3">${esc(c.name)}</span></span>`;
 }
 let B = null;
 function battleScreen() {
@@ -994,12 +1002,16 @@ function drawBattle(last) {
 function play(k) {
   const m = B.mine[k], left = B.foe.map((c, i) => c ? i : -1).filter(i => i >= 0), fi = pick(left), f = B.foe[fi];
   B.mine[k] = null; B.foe[fi] = null; B.round++;
-  const mw = BEATS[m.hand] === f.hand, fw = BEATS[f.hand] === m.hand;
-  const mp = m.num * (mw ? 2 : 1), fp = f.num * (fw ? 2 : 1);
-  const res = mp > fp ? 'win' : mp < fp ? 'lose' : 'draw';
+  const mw = BEATS[m.hand] === f.hand, fw = BEATS[f.hand] === m.hand, fx = m.fx;
+  const mn = m.num + (fx === 'plus2' ? 2 : 0), fn = Math.max(0, f.num - (fx === 'minus2' ? 2 : 0));
+  const mx = mw ? (fx === 'triple' ? 3 : 2) : 1, fxx = fw && fx !== 'guard' ? 2 : 1;
+  const mp = mn * mx, fp = fn * fxx;
+  // 効果が勝ち負けに かかわったときだけ、画面に出す
+  const fxOn = FX[fx] && ({ triple: mw, minus2: f.num > 0, guard: fw, tie: mp === fp, plus2: true })[fx];
+  const res = mp > fp || (mp === fp && fx === 'tie') ? 'win' : mp < fp ? 'lose' : 'draw';
   if (res === 'win') B.w++; else if (res === 'lose') B.l++;
-  const jt = mw ? 'ジャンケンは じぶんの かち → 2ばい！' : fw ? 'ジャンケンは あいての かち → あいてが2ばい' : 'ジャンケンは あいこ';
-  const text = `${jt}<br><b>${mw ? `${m.num}×2＝` : ''}${mp}</b> たい <b>${fw ? `${f.num}×2＝` : ''}${fp}</b>　${res === 'win' ? '⭕ かち！' : res === 'lose' ? '❌ まけ' : '△ ひきわけ'}`;
+  const jt = (mw ? `ジャンケンは じぶんの かち → ${mx}ばい！` : fw ? (fxx > 1 ? 'ジャンケンは あいての かち → あいてが2ばい' : 'ジャンケンは あいての かち…でも2ばいを ふせいだ！') : 'ジャンケンは あいこ') + (fxOn ? `<br>${FX[fx].icon} こうか「${FX[fx].name}」` : '');
+  const text = `${jt}<br><b>${mx > 1 ? `${mn}×${mx}＝` : ''}${mp}</b> たい <b>${fxx > 1 ? `${fn}×2＝` : ''}${fp}</b>　${res === 'win' ? '⭕ かち！' : res === 'lose' ? '❌ まけ' : '△ ひきわけ'}`;
   SE.play(res === 'win' ? 'ok' : res === 'lose' ? 'ng' : 'select');
   drawBattle({ m, f, res, text });
   if (B.round >= 5) setTimeout(() => SE.play(B.w > B.l ? 'perfect' : 'over'), 700);

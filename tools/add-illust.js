@@ -2,6 +2,7 @@
 // イラスト1まい = ストーリーの1しょう(9ステージ)。9ステージクリアで完成し、ずかんとバトルのカードになる。
 // 実行: node tools/add-illust.js <画像> --name ほのおのドラゴン --place ドラゴンの山 --hand p --num 8
 //   --hand は g(グー)/c(チョキ)/p(パー)、--num はカードの数字(6〜9 くらい。ふつうのなかまは2〜5)
+//   --fx はカードの効果(なくてもよい): triple / minus2 / guard / tie / plus2(中身は app.js の FX)
 // ふっかつのじゅもんがこの順番を使うので、かならず最後に足す(並べかえ・削除をしない)
 const fs = require('fs');
 const path = require('path');
@@ -9,7 +10,7 @@ const { chromium } = require('C:/Users/user/Desktop/自作ゲーム/2_カード�
 
 const args = process.argv.slice(2);
 const opt = k => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : null; };
-const src = args[0], name = opt('name'), place = opt('place'), hand = opt('hand'), num = +opt('num');
+const src = args[0], name = opt('name'), place = opt('place'), hand = opt('hand'), num = +opt('num'), fx = opt('fx');
 if (!src || !name || !place || !'gcp'.includes(hand || 'x') || !(num >= 1 && num <= 9)) {
   console.log('usage: node tools/add-illust.js <画像> --name 名前 --place ばしょ --hand g|c|p --num 1〜9'); process.exit(1);
 }
@@ -33,7 +34,7 @@ fs.mkdirSync(path.dirname(out), { recursive: true });
       return { w, h, data: c.toDataURL('image/jpeg', 0.85) };
     }, url);
     fs.writeFileSync(out, Buffer.from(r.data.split(',')[1], 'base64'));
-    list.push({ id, file: `illust/${id}.jpg`, w: r.w, h: r.h, name, place, hand, num });
+    list.push({ id, file: `illust/${id}.jpg`, w: r.w, h: r.h, name, place, hand, num, ...(fx ? { fx } : {}) });
     fs.writeFileSync(DATA, '// 自動生成(tools/add-illust.js)。ストーリーのイラスト。順番を変えない(ふっかつのじゅもんが使う)\nwindow.ND_ILL = ' + JSON.stringify(list, null, 1) + ';\n');
     console.log(`${id} ${name} ${r.w}x${r.h} ${(fs.statSync(out).size / 1024).toFixed(0)}KB`);
   } finally { await browser.close(); }
