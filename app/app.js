@@ -263,7 +263,7 @@ if (!S.sg) S.sg = 3;
 const pieces = id => S.st[id] || 0;
 const has = (id, i) => (pieces(id) >> i & 1) === 1;
 const done = id => pieces(id) === FULL;
-// ---------- ひみつの章(この端末の中だけに保存するイラストパック。公開サイトには画像を置かない)
+// ---------- 追加の章(家で使うだけの画像のパック。この端末の中だけに保存し、公開サイトには画像を置かない。1回読みこめば ふつうの章と同じ)
 // パックは tools/make-pack.js が作る JSON。読みこむと IndexedDB に入り、公開の章のあとに しょうとして足される
 const PUB = ILL.length, PACK_DB = 'nakama-drill-pack';
 function idb() {
@@ -943,25 +943,22 @@ function storyTop() {
       const open = chapterOpen(ci), n = pieceCount(x.id);
       return `<button class="chap${open ? '' : ' lock'}${done(x.id) ? ' full' : ''}" data-c="${ci}" ${open ? '' : 'disabled'}>
         ${open && n ? puzzleHTML(x, done(x.id) ? 'whole' : '') : `<div class="pz none" style="aspect-ratio:${x.w} / ${x.h}"><b>${open ? '？' : '🔒'}</b></div>`}
-        <span class="txt"><b>${ci + 1}しょう ${esc(x.place)}${x.pack ? ' ✨' : ''}</b><small>${done(x.id) ? `✅ ${esc(x.name)}` : open ? `ピース ${n} / 9` : `${ci}しょうを クリアすると ひらく`}</small></span></button>`;
+        <span class="txt"><b>${ci + 1}しょう ${esc(x.place)}</b><small>${done(x.id) ? `✅ ${esc(x.name)}` : open ? `ピース ${n} / 9` : `${ci}しょうを クリアすると ひらく`}</small></span></button>`;
     }).join('')}</div>
     <p class="foot">学年をかえると、ステージの問題が その学年のものになるよ(もらったピースは そのまま)。</p>
-    <section class="spell"><h3>🔒 ひみつの章</h3><p class="sub">おうちの人から もらった ファイルを読みこむと、この端末の中だけに 章がふえるよ(インターネットには公開されない)。</p>
-      ${ILL.length > PUB ? `<p>いま ${ILL.length - PUB}しょう 入っている</p>` : ''}
-      <label class="btn main wide filebtn">📦 ファイルから読みこむ<input type="file" accept=".json,application/json" id="packf" hidden></label>
-      ${ILL.length > PUB ? '<button class="btn wide" id="packdel">ひみつの章を消す</button>' : ''}<p class="msg" id="pmsg"></p></section>`;
+    ${ILL.length > PUB ? '' : `<section class="spell"><h3>📦 章をふやす(おうちの人用)</h3><p class="sub">もらったファイルを1回読みこむと、この端末に 章がふえるよ。あとは ふつうに クリアして すすめてね。</p>
+      <label class="btn main wide filebtn">ファイルから読みこむ<input type="file" accept=".json,application/json" id="packf" hidden></label><p class="msg" id="pmsg"></p></section>`}`;
   app.querySelector('#back').onclick = back;
   app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { S.sg = +b.dataset.g; save(); SE.play('select'); storyTop(); });
   app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { SE.play('select'); go({ s: 'map', c: +b.dataset.c }); });
   const pm = app.querySelector('#pmsg');
-  app.querySelector('#packf').onchange = async e => {
+  const pf = app.querySelector('#packf');
+  if (pf) pf.onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
     pm.textContent = '読みこみ中…';
-    try { const n = await importPack(f); SE.play('perfect'); storyTop(); app.querySelector('#pmsg').textContent = `ひみつの章を ${n}しょう 入れたよ！`; }
+    try { const n = await importPack(f); SE.play('perfect'); storyTop(); alert(`章が ${n}しょう ふえたよ！`); }
     catch (err) { pm.textContent = 'このファイルは 読みこめなかったよ'; SE.play('ng'); }
   };
-  const pd = app.querySelector('#packdel');
-  if (pd) pd.onclick = async () => { if (!confirm('ひみつの章を この端末から消すよ。いい？(ピースの記録は のこる)')) return; await packPut([]); addPack([]); storyTop(); };
 }
 // マップのステージの位置(下から上へ、くねくね進む)。横・たて とも%
 const MAP_PTS = [[22, 90], [55, 84], [80, 72], [52, 62], [20, 52], [42, 40], [76, 32], [54, 19], [24, 9]];
