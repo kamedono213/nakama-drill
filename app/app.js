@@ -1016,7 +1016,6 @@ function mapScreen(ci) {
 }
 
 // ---------- バトル(ジャンケン＋数字)
-// おたがいに1まいずつ同時に出す。ジャンケンで かったほうは数字が2ばい。大きいほうが かち。5かいせんで多く かったほうの勝ち
 const HAND = { g: '✊ グー', c: '✌️ チョキ', p: '✋ パー' };
 const HICON = { g: '✊', c: '✌️', p: '✋' };
 const BEATS = { g: 'c', c: 'p', p: 'g' };
@@ -1037,35 +1036,65 @@ function battleCard(c, cls = '') {
     : c.k === 'nk' ? `<span class="art nk">${nakamaSVG(c.u, c.f, c.kira)}</span>` : `<span class="art nk">${eggSVG(UNITS[0])}</span>`;
   return `<span class="bc ${c.k}${c.kage ? ' kage' : ''} ${cls}">${art}<span class="hd">${HICON[c.hand]}</span><span class="num">${c.num}</span>${c.fx && FX[c.fx] ? `<span class="fxi">${FX[c.fx].icon}</span>` : ''}<span class="nm3">${esc(c.name)}</span></span>`;
 }
+// ルール(2026-11-02 作り直し): HP 20 どうし。あいての カードは ジャンケンの手だけ 見えている(数字は ？)。
+// 1まいずつ同時に出し、強いほうが「力の差」だけ ダメージを あたえる。HP が 0 になるか、5かい出しきって HP が多いほうが勝ち。
+// → 「あいてに グーが のこっているから パーを とっておく」のような 読みあいが できる
+const HP = 20;
 let B = null;
+// 1かいの しょうぶ。m=じぶん f=あいて(効果は じぶんの カードだけ)
+function clash(m, f) {
+  const mw = BEATS[m.hand] === f.hand, fw = BEATS[f.hand] === m.hand, fx = m.fx;
+  const mn = m.num + (fx === 'plus2' ? 2 : 0), fn = Math.max(0, f.num - (fx === 'minus2' ? 2 : 0));
+  const mx = mw ? (fx === 'triple' ? 3 : 2) : 1, fxx = fw && fx !== 'guard' ? 2 : 1;
+  const mp = mn * mx, fp = fn * fxx;
+  const res = mp > fp || (mp === fp && fx === 'tie') ? 'win' : mp < fp ? 'lose' : 'draw';
+  const fxOn = FX[fx] && ({ triple: mw, minus2: f.num > 0, guard: fw, tie: mp === fp, plus2: true })[fx];
+  return { mw, fw, fx, mn, fn, mx, fxx, mp, fp, res, fxOn, dmg: res === 'draw' ? 0 : Math.min(10, Math.max(1, Math.abs(mp - fp))) }; // 1かいの ダメージは 10まで(1ぱつで おわらない)
+}
+// あいての えらび方: じぶんの のこりの カード ぜんぶと くらべて、いちばん とくな カード。ときどき きまぐれ
+function foePick() {
+  const left = B.foe.map((c, i) => c ? i : -1).filter(i => i >= 0), mine = B.mine.filter(Boolean);
+  if (Math.random() < 0.25) return pick(left);
+  let best = left[0], bs = -1e9;
+  for (const i of left) {
+    const sc = mine.reduce((t, m) => { const r = clash(m, B.foe[i]); return t + (r.res === 'lose' ? r.dmg : r.res === 'win' ? -r.dmg : 0); }, 0) / mine.length + Math.random();
+    if (sc > bs) { bs = sc; best = i; }
+  }
+  return best;
+}
 function battleScreen() {
-  // じぶん: 完成したイラスト → 持っているなかま(強い順に まぜる) → たまご、で5まい
+  // じぶん: 完成したイラスト → 持っているなかま(強い順) → たまご、で5まい
   const mine = shuffle(ILL.filter(x => done(x.id)).map(illCard)).slice(0, 5);
   const nks = shuffle(owned().map(u => nkCard(u, formOf(u.id), rec(u.id).kira))).sort((a, b) => b.num - a.num);
   while (mine.length < 5 && nks.length) mine.push(nks.shift());
   while (mine.length < 5) mine.push(eggCard(pick('gcp')));
-  // あいて: やせいの なかま(数字は2〜5)。完成したイラストが ふえるほど、ボス(かげの〜、数字6〜9)が まざって強くなる
-  const dn = ILL.filter(x => done(x.id)), boss = Math.min(3, Math.floor(dn.length / 3));
-  const foe = Array.from({ length: 5 }, (_, k) => {
-    if (k < boss) { const x = pick(dn); return { k: 'ill', kage: true, x, hand: pick('gcp'), num: ri(6, 9), name: 'かげの' + x.name }; }
-    const u = pick(UNITS), f = ri(1, 3); return nkCard(u, f, Math.random() < 0.15);
+  // あいて: じぶんの 手札と ほぼ同じ強さ(数字を ±1)。手は ばらばら。6いじょうは ボス(かげの〜。完成イラストが あるとき)
+  // → 強いカードを 集めても 楽勝には ならず、ジャンケンの 読みで 勝ち負けが きまる
+  const dn = ILL.filter(x => done(x.id));
+  const foe = mine.map(c => {
+    const num = Math.min(9, Math.max(1, c.num + ri(-1, 1))), hand = pick('gcp');
+    if (num >= 6 && dn.length) { const x = pick(dn); return { k: 'ill', kage: true, x, hand, num, name: 'かげの' + x.name }; }
+    const u = pick(UNITS), f = ri(1, 3); return { ...nkCard(u, f, false), hand, num };
   });
-  B = { mine: shuffle(mine), foe: shuffle(foe), round: 0, w: 0, l: 0, log: [] };
+  B = { mine: shuffle(mine), foe: shuffle(foe), round: 0, hp: HP, fhp: HP };
   drawBattle();
 }
+const hpBar = (who, v) => `<div class="hp hp-${who}"><span>${who === 'me' ? 'じぶん' : 'あいて'}</span><i><b style="width:${Math.max(0, v) / HP * 100}%"></b></i><em>❤ ${Math.max(0, v)}</em></div>`;
 function drawBattle(last) {
-  const over = B.round >= 5;
+  const over = B.round >= 5 || B.hp <= 0 || B.fhp <= 0, win = B.hp > B.fhp;
   app.innerHTML = `
     <header class="top" data-furi-slot><button class="back" id="${over ? 'back' : 'quit'}" ${over ? 'data-noconfirm' : ''} aria-label="もどる">←</button><h2>⚔️ バトル</h2><span class="pill">${Math.min(B.round + 1, 5)} / 5</span></header>
-    <div class="score2"><span>じぶん <b>${B.w}</b></span><span>あいて <b>${B.l}</b></span></div>
-    <div class="foe">${B.foe.map(c => c ? '<span class="bc back2"></span>' : '<span class="bc used"></span>').join('')}</div>
+    ${hpBar('foe', B.fhp)}
+    <div class="foe">${B.foe.map(c => c ? `<span class="bc back2"><span class="hd">${HICON[c.hand]}</span><span class="num">？</span></span>` : '<span class="bc used"></span>').join('')}</div>
     <div class="field" id="field">${last ? `<div class="vs"><div>${battleCard(last.m, 'pop')}じぶん</div><b class="vsx">VS</b><div>${battleCard(last.f, 'pop')}あいて</div></div>
-      <p class="judge ${last.res}">${last.text}</p>` : `<p class="sub center">カードを1まい えらんでね。<br>ジャンケンで かつと 数字が2ばい！</p>`}</div>
-    ${over ? `<section class="res ${B.w > B.l ? 'evolve' : 'miss'}"><h2>${B.w > B.l ? '🏆 かち！' : B.w < B.l ? 'まけ…' : 'ひきわけ'}</h2><p class="sub">${B.w}しょう ${B.l}はい ${5 - B.w - B.l}ひきわけ</p>
+      <p class="judge ${last.r.res}">${last.text}</p>` : `<div class="rule"><b>ルール</b><br>おたがい1まいずつ 同時に出す。ジャンケンで かつと 数字が<b>2ばい</b>。<br>強いほうが <b>力の差</b>だけ ダメージ(10まで)！<br>あいての カードは <b>手だけ</b> 見えているよ。のこりの手を 読もう！</div>`}</div>
+    ${hpBar('me', B.hp)}
+    ${over ? `<section class="res ${win ? 'evolve' : 'miss'}"><h2>${win ? '🏆 かち！' : B.hp < B.fhp ? 'まけ…' : 'ひきわけ'}</h2><p class="sub">のこりHP じぶん ${Math.max(0, B.hp)} ／ あいて ${Math.max(0, B.fhp)}</p>
       ${ILL.some(x => done(x.id)) ? '' : '<p class="hint">ストーリーで イラストを完成させると、強いカードが手に入るよ！</p>'}</section>
       <div class="btns"><button class="btn main" id="again">もう1回</button><button class="btn" id="home">ホームへ</button></div>`
     : `<div class="mine">${B.mine.map((c, i) => c ? `<button class="pickc" data-k="${i}">${battleCard(c)}</button>` : '<span class="bc used"></span>').join('')}</div>`}`;
   app.querySelector('#back, #quit').onclick = back;
+  if (last && last.r.dmg) { const el = app.querySelector(last.r.res === 'win' ? '.hp-foe' : '.hp-me'); el.classList.add('hit'); el.insertAdjacentHTML('beforeend', `<strong class="dmg">-${last.r.dmg}</strong>`); }
   if (over) {
     app.querySelector('#again').onclick = () => { SE.play('start'); battleScreen(); };
     app.querySelector('#home').onclick = back;
@@ -1074,23 +1103,19 @@ function drawBattle(last) {
   app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => play(+b.dataset.k));
 }
 function play(k) {
-  const m = B.mine[k], left = B.foe.map((c, i) => c ? i : -1).filter(i => i >= 0), fi = pick(left), f = B.foe[fi];
+  const m = B.mine[k], fi = foePick(), f = B.foe[fi];
   B.mine[k] = null; B.foe[fi] = null; B.round++;
-  const mw = BEATS[m.hand] === f.hand, fw = BEATS[f.hand] === m.hand, fx = m.fx;
-  const mn = m.num + (fx === 'plus2' ? 2 : 0), fn = Math.max(0, f.num - (fx === 'minus2' ? 2 : 0));
-  const mx = mw ? (fx === 'triple' ? 3 : 2) : 1, fxx = fw && fx !== 'guard' ? 2 : 1;
-  const mp = mn * mx, fp = fn * fxx;
-  // 効果が勝ち負けに かかわったときだけ、画面に出す
-  const fxOn = FX[fx] && ({ triple: mw, minus2: f.num > 0, guard: fw, tie: mp === fp, plus2: true })[fx];
-  const res = mp > fp || (mp === fp && fx === 'tie') ? 'win' : mp < fp ? 'lose' : 'draw';
-  if (res === 'win') B.w++; else if (res === 'lose') B.l++;
-  const jt = (mw ? `ジャンケンは じぶんの かち → ${mx}ばい！` : fw ? (fxx > 1 ? 'ジャンケンは あいての かち → あいてが2ばい' : 'ジャンケンは あいての かち…でも2ばいを ふせいだ！') : 'ジャンケンは あいこ') + (fxOn ? `<br>${FX[fx].icon} こうか「${FX[fx].name}」` : '');
-  const text = `${jt}<br><b>${mx > 1 ? `${mn}×${mx}＝` : ''}${mp}</b> たい <b>${fxx > 1 ? `${fn}×2＝` : ''}${fp}</b>　${res === 'win' ? '⭕ かち！' : res === 'lose' ? '❌ まけ' : '△ ひきわけ'}`;
-  SE.play(res === 'win' ? 'ok' : res === 'lose' ? 'ng' : 'select');
-  drawBattle({ m, f, res, text });
-  if (B.round >= 5) setTimeout(() => SE.play(B.w > B.l ? 'perfect' : 'over'), 700);
-  if (B.round >= 5 && B.w > B.l) { S.bw = (S.bw || 0) + 1; save(); }
+  const r = clash(m, f);
+  if (r.res === 'win') B.fhp -= r.dmg; else if (r.res === 'lose') B.hp -= r.dmg;
+  const jt = (r.mw ? `ジャンケンは じぶんの かち → ${r.mx}ばい！` : r.fw ? (r.fxx > 1 ? 'ジャンケンは あいての かち → あいてが2ばい' : 'ジャンケンは あいての かち…でも2ばいを ふせいだ！') : 'ジャンケンは あいこ') + (r.fxOn ? `<br>${FX[r.fx].icon} こうか「${FX[r.fx].name}」` : '');
+  const text = `${jt}<br><b>${r.mx > 1 ? `${r.mn}×${r.mx}＝` : ''}${r.mp}</b> たい <b>${r.fxx > 1 ? `${r.fn}×2＝` : ''}${r.fp}</b>　${r.res === 'win' ? `⭕ あいてに ${r.dmg}ダメージ！` : r.res === 'lose' ? `❌ ${r.dmg}ダメージを うけた` : '△ ひきわけ'}`;
+  SE.play(r.res === 'win' ? 'ok' : r.res === 'lose' ? 'ng' : 'select');
+  drawBattle({ m, f, r, text });
+  const over = B.round >= 5 || B.hp <= 0 || B.fhp <= 0;
+  if (over) setTimeout(() => SE.play(B.hp > B.fhp ? 'perfect' : 'over'), 700);
+  if (over && B.hp > B.fhp) { S.bw = (S.bw || 0) + 1; save(); }
 }
+
 
 // ---------- ふっかつのじゅもん
 function spellScreen() {

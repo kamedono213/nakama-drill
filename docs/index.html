@@ -278,6 +278,18 @@ button:disabled { cursor: default; }
 .bc .nm3 { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.9); font-size: 10px; font-weight: 800; text-align: center; line-height: 1.5; padding: 1px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bc.back2 { background: repeating-linear-gradient(45deg, #a8321f 0 8px, #c2432e 8px 16px); box-shadow: 0 0 0 2px #7a2214 inset, 0 3px 0 rgba(0,0,0,.18); }
 .bc.used { background: none; box-shadow: 0 0 0 2px var(--line) inset; opacity: .5; }
+.hp { position: relative; display: grid; grid-template-columns: 52px 1fr 54px; align-items: center; gap: 8px; margin: 6px 0; font-family: var(--display); font-weight: 800; font-size: 14px; }
+.hp i { height: 14px; border-radius: 99px; background: #e9e1cf; overflow: hidden; box-shadow: 0 0 0 1.5px var(--line) inset; }
+.hp b { display: block; height: 100%; border-radius: 99px; transition: width .6s ease .5s; }
+.hp-me b { background: linear-gradient(90deg, #3fbf6a, #2a9d5c); } .hp-foe b { background: linear-gradient(90deg, #ff6a4d, #d6455a); }
+.hp em { font-style: normal; text-align: right; }
+.hp.hit { animation: oops .5s ease .4s; }
+.dmg { position: absolute; right: 60px; top: -14px; color: var(--ng); font-size: 24px; text-shadow: 0 2px 0 #fff; animation: dmg 1.4s ease-out .4s both; pointer-events: none; }
+@keyframes dmg { 0% { opacity: 0; transform: translateY(8px) scale(.6); } 20% { opacity: 1; transform: translateY(0) scale(1.2); } 100% { opacity: 0; transform: translateY(-16px); } }
+.bc.back2 .hd, .bc.back2 .num { background: #fff; color: #a8321f; }
+.bc.back2 .hd { left: 50%; top: 42%; transform: translate(-50%, -50%); width: clamp(26px, 46cqw, 44px); height: clamp(26px, 46cqw, 44px); font-size: clamp(16px, 28cqw, 28px); }
+.bc.back2 .num { right: 50%; top: auto; bottom: 6px; transform: translateX(50%); min-width: 0; padding: 0 6px; height: auto; font-size: 13px; }
+.rule { font-size: 14px; line-height: 1.8; text-align: center; } .rule b { color: #a8321f; }
 .score2 { display: flex; justify-content: space-around; font-family: var(--display); font-weight: 800; font-size: 16px; margin-bottom: 8px; } .score2 b { font-size: 26px; color: #3a2f7a; }
 .foe, .mine { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .foe .bc { aspect-ratio: 3 / 4; }
