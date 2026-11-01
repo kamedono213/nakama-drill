@@ -657,13 +657,28 @@ function nextStage() {
   return { ci, i, u: storyStages(ci)[i] };
 }
 function partnerUnit() { return S.partner && formOf(S.partner) ? byId[S.partner] : owned()[0] || null; }
+// あいぼうは なかま か 完成したイラスト。イラストは S.partner に その id を入れる(じゅもんには入らない)
+function partnerIll() { const x = S.partner && illById[S.partner]; return x && done(x.id) ? x : null; }
+function buddyArt(cls, fb) {
+  const x = partnerIll(); if (x) return `<img class="pimg ${cls}" src="${x.file}" alt="${esc(x.name)}">`;
+  const p = partnerUnit(); return p ? nakamaSVG(p, formOf(p.id), rec(p.id).kira, cls) : eggSVG(fb || UNITS[0], cls === 'bob' ? 'wob' : cls);
+}
+// ホームの あいぼうを えらびなおす
+function pickBuddy() {
+  SE.play('select');
+  const ills = ILL.filter(x => done(x.id)), us = owned(), cur = partnerIll() ? partnerIll().id : (partnerUnit() || {}).id;
+  const d = modal(`<h3>あいぼうを えらぶ</h3>
+    ${ills.length || us.length ? `<div class="bpick">${ills.map(x => `<button class="bp${x.id === cur ? ' on' : ''}" data-p="${x.id}"><img src="${x.file}" alt=""><small>${esc(x.name)}</small></button>`).join('')}${us.map(u => { const f = formOf(u.id); return `<button class="bp${u.id === cur ? ' on' : ''}" data-p="${u.id}">${nakamaSVG(u, f, rec(u.id).kira)}<small>${esc(u.names[f - 1])}</small></button>`; }).join('')}</div>`
+    : '<p class="sub">まだ なかまが いないよ。ドリルを クリアしよう！</p>'}`, '#3a2f7a');
+  d.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { S.partner = b.dataset.p; save(); SE.play('ok'); d.innerHTML = ''; home(); });
+}
 function home() {
-  const p = partnerUnit(), n = owned().length, mine = myCards(), cont = nextStage();
+  const p = partnerUnit(), pi = partnerIll(), n = owned().length, mine = myCards(), cont = nextStage();
   app.innerHTML = `
     <header class="top" data-furi-slot><h1>なかまドリル</h1></header>
     <section class="hero">
-      <div class="stage">${p ? nakamaSVG(p, formOf(p.id), rec(p.id).kira, 'bob') : eggSVG(UNITS[0], 'wob')}</div>
-      <div class="say">${p ? `<b>${esc(p.names[formOf(p.id) - 1])}</b><span>きょうも いっしょに がんばろう！</span>` : '<b>なかまを あつめよう</b><span>ドリルを1つクリアすると、たまごから なかまが生まれるよ。</span>'}</div>
+      <button class="stage" id="buddy" aria-label="あいぼうを かえる">${buddyArt('bob')}${pi || p ? '<span class="swap">🔄 かえる</span>' : ''}</button>
+      <div class="say">${pi ? `<b>${esc(pi.name)}</b><span>きょうも いっしょに がんばろう！</span>` : p ? `<b>${esc(p.names[formOf(p.id) - 1])}</b><span>きょうも いっしょに がんばろう！</span>` : '<b>なかまを あつめよう</b><span>ドリルを1つクリアすると、たまごから なかまが生まれるよ。</span>'}</div>
     </section>
     ${cont ? `<button class="cont" id="cont"><b>▶ つづきから</b><small>${cont.ci + 1}しょう ステージ${cont.i + 1}「${esc(cont.u.title)}」</small></button>` : ''}
     ${ILL.length ? `<div class="modes">
@@ -675,8 +690,10 @@ function home() {
       return `<button class="subj" data-subj="${k}" style="--c:${v.color}"><span class="ic">${v.icon}</span><b>${k}</b><small>${got} / ${us.length}</small><i style="width:${(got / us.length) * 100}%"></i></button>`;
     }).join('')}</div>
     <button class="spellbtn" id="spell">🔑 ふっかつのじゅもん(記録のひかえ)</button>
-    <p class="foot">10問中${PASS}問できたらクリア。${EVOLVE[1]}回・${EVOLVE[2]}回クリアで進化、全問正解でキラ。クリアするたびに、元素くん・国旗くん・星座くんのカードも1まいもらえるよ。記録はこの端末に保存されます。ブラウザのデータを消すときは、先に「ふっかつのじゅもん」をひかえておいてね。</p>`;
+    <p class="foot">10問中${PASS}問できたらクリア。${EVOLVE[1]}回・${EVOLVE[2]}回クリアで進化、全問正解でキラ。クリアするたびに、元素くん・国旗くん・星座くんのカードも1まいもらえるよ。記録はこの端末に保存されます。ブラウザのデータを消すときは、先に「ふっかつのじゅもん」をひかえておいてね。</p>
+    <div id="dlg"></div>`;
   app.querySelector('#zukan').onclick = () => { SE.play('select'); go({ s: 'zukan' }); };
+  app.querySelector('#buddy').onclick = pickBuddy;
   app.querySelector('#spell').onclick = () => { SE.play('select'); go({ s: 'spell' }); };
   if (ILL.length) {
     app.querySelector('#story').onclick = () => { SE.play('select'); go({ s: 'story' }); };
@@ -726,7 +743,7 @@ function showQ() {
     <div class="qbar" style="--c:${v.color}"><button class="back" id="quit" aria-label="やめる">✕</button>
       <div class="ttl">${esc(u.title)}<small>${Q.story ? `🗺️ ステージ${Q.story.stage + 1}・` : ''}${u.grade}年 ${u.subj}</small></div><span class="pill">${i + 1} / ${list.length}</span></div>
     <div class="prog"><i style="width:${(i / list.length) * 100}%;background:${v.color}"></i></div>
-    <div class="buddy">${p ? nakamaSVG(p, formOf(p.id), rec(p.id).kira, 'mini') : eggSVG(u, 'mini')}<span class="bubble" id="bubble">${['いけるよ！', 'よく読んでね', 'ファイト！', 'じっくりね'][i % 4]}</span></div>
+    <div class="buddy">${buddyArt('mini', u)}<span class="bubble" id="bubble">${['いけるよ！', 'よく読んでね', 'ファイト！', 'じっくりね'][i % 4]}</span></div>
     <div class="q" style="--c:${v.color}">
       <p>${it.q}</p>
       ${it.big ? `<div class="big"${it.bigNofuri ? ' data-nofuri' : ''}>${esc(it.big)}</div>` : ''}
@@ -958,13 +975,16 @@ function detail(u) {
   d.querySelector('#mate').onclick = () => { S.partner = u.id; save(); SE.play('ok'); d.querySelector('#mate').textContent = 'あいぼう です'; };
 }
 
+const dlgEl = () => app.querySelector('#dlg');
 function illDetail(x) {
   SE.play('select');
   const d = done(x.id), ci = ILL.indexOf(x);
   modal(`${d ? `<img class="illbig" src="${x.file}" alt="${esc(x.name)}">` : puzzleHTML(x)}
     <h3>${d ? esc(x.name) : `${ci + 1}しょうの イラスト`}</h3>
     <p class="sub">${esc(x.place)}・ピース ${pieceCount(x.id)} / 9</p>
-    ${d ? `<div class="bcrow">${battleCard(illCard(x))}</div><p class="sub">バトルでは ${HAND[x.hand]} の ${x.num}</p>${x.fx && FX[x.fx] ? `<p class="note">${FX[x.fx].icon} <b>${FX[x.fx].name}</b>: ${FX[x.fx].text}</p>` : ''}` : '<p class="sub">ストーリーで ステージをクリアして、ピースを集めよう</p>'}`, '#3a2f7a');
+    ${d ? `<div class="bcrow">${battleCard(illCard(x))}</div><p class="sub">バトルでは ${HAND[x.hand]} の ${x.num}</p>${x.fx && FX[x.fx] ? `<p class="note">${FX[x.fx].icon} <b>${FX[x.fx].name}</b>: ${FX[x.fx].text}</p>` : ''}<button class="btn main wide" id="mate">${S.partner === x.id ? 'あいぼう です' : 'あいぼうにする'}</button>` : '<p class="sub">ストーリーで ステージをクリアして、ピースを集めよう</p>'}`, '#3a2f7a');
+  const mb = dlgEl().querySelector('#mate');
+  if (mb) mb.onclick = () => { S.partner = x.id; save(); SE.play('ok'); mb.textContent = 'あいぼう です'; };
 }
 
 // ---------- ストーリー: しょうをえらぶ → マップ(9ステージ)
