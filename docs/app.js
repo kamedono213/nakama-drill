@@ -764,6 +764,9 @@ function result() {
   if (newPiece) S.st[sty.ill] = pieces(sty.ill) | (1 << sty.stage);
   const complete = newPiece && done(sty.ill);
   save();
+  // クリアしたら「つぎのステージへ」。しょうの最後なら、つぎのしょうのマップへ
+  const ci = sty ? ILL.indexOf(ill) : -1;
+  const nextBtn = !sty || !clear ? '' : sty.stage < 8 ? 'つぎのステージへ ▶' : done(sty.ill) && ILL[ci + 1] ? 'つぎの しょうへ ▶' : '';
   const got = cardOrder().slice(c0, cardCount());
   const f1 = formOf(u.id), kiraNew = perfect && !before.kira;
   const ev = !clear ? 'miss' : f0 === 0 ? 'born' : f1 > f0 ? 'evolve' : kiraNew ? 'kira' : 'clear';
@@ -787,11 +790,17 @@ function result() {
     ${got.length ? `<section class="getcards" id="getcards"><h3>🎁 カードをゲット！</h3><div class="cgrid">${got.map((c, i) => `<button class="card flip" style="animation-delay:${2 + i * 0.5}s" data-card="${c.id}">${cardFace(c)}</button>`).join('')}</div><p class="sub">タップすると、くわしく見られるよ</p></section>` : clear && r.clears > 7 ? '<p class="sub center">この単元のカードは ぜんぶもらったよ。ほかの単元でもカードを集めよう！</p>' : ''}
     <div id="dlg"></div>
     <div class="btns">
-      <button class="btn main" id="again">もう1回</button>
+      ${nextBtn ? `<button class="btn main" id="next2">${nextBtn}</button>` : ''}<button class="btn${nextBtn ? '' : ' main'}" id="again">もう1回</button>
       <button class="btn" id="tolist">${sty ? '🗺️ マップへ' : '単元をえらぶ'}</button></div>
     ${miss.length ? `<h3 class="mh">まちがえた問題</h3><div class="miss">${miss.map(it => `<div><p>${it.q}${it.big ? `<b${it.bigNofuri ? ' data-nofuri' : ''}> ${esc(it.big)}</b>` : ''}</p><p>こたえ: <b${it.nofuriCh ? ' data-nofuri' : ''}>${fmtAns(it)}</b></p></div>`).join('')}</div>` : ''}`;
   app.querySelector('#quit').onclick = back;
   app.querySelector('#tolist').onclick = back;
+  const nx2 = app.querySelector('#next2');
+  if (nx2) nx2.onclick = () => {
+    SE.play('start');
+    if (sty.stage < 8) go({ s: 'quiz', id: storyStages(ci)[sty.stage + 1].id, story: { ill: sty.ill, stage: sty.stage + 1 } }, true);
+    else go({ s: 'map', c: ci + 1 }, true);
+  };
   app.querySelector('#again').onclick = () => { SE.play('start'); go({ s: 'quiz', id: u.id, story: sty }, true); };
   SE.play(perfect ? 'perfect' : clear ? 'result' : 'over');
   if (newPiece) setTimeout(() => SE.play(complete ? 'perfect' : 'star'), 900);
