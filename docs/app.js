@@ -266,17 +266,19 @@ const done = id => pieces(id) === FULL;
 const pieceCount = id => { let m = pieces(id), n = 0; while (m) { n += m & 1; m >>= 1; } return n; };
 const chapterOpen = ci => ci === 0 || done(ILL[ci - 1].id);
 const stageOpen = (id, i) => i === 0 || has(id, i - 1) || has(id, i);
-// しょう ci の9ステージの単元。えらんだ学年までの単元を、国語→算数→理科→社会の順にかわりばんこに出す。
-// 教科ごとに、その学年の単元から先に(下の学年はあと)。なくなった教科はとばすので、同じ単元が続けて出にくい
+// しょう ci の9ステージの単元。えらんだ学年の単元だけを、国語→算数→理科→社会の順に かわりばんこに出す
+// (その学年に単元がない教科は とばす)。出しきったら はじめから くり返す(ふくしゅう)
 function storyStages(ci) {
-  const g = S.sg, lists = Object.keys(SUBJ).map(sj => UNITS.filter(u => u.subj === sj && u.grade <= g).sort((a, b) => b.grade - a.grade));
+  const g = S.sg, lists = Object.keys(SUBJ).map(sj => UNITS.filter(u => u.subj === sj && u.grade === g));
   const seq = [];
   for (let i = 0; lists.some(a => a[i]); i++) for (const a of lists) if (a[i]) seq.push(a[i]);
   return Array.from({ length: 9 }, (_, s) => seq[(ci * 9 + s) % seq.length]);
 }
 // 3×3のパズル。持っていないピースは番号だけ。fresh はいま もらったピースの番号(光らせる)
 function puzzleHTML(ill, cls = '', fresh = -1) {
-  return `<div class="pz ${cls}" style="aspect-ratio:${ill.w} / ${ill.h}">${Array.from({ length: 9 }, (_, i) => has(ill.id, i)
+  // 縦長の絵は、画面の高さの4わり(結果画面は3わり5ぶ)までに おさえる(マップや ボタンが 下に おしやられないように)
+  const cap = /mapz/.test(cls) ? 40 : /getp/.test(cls) ? 35 : 0;
+  return `<div class="pz ${cls}" style="aspect-ratio:${ill.w} / ${ill.h}${cap ? `;width:min(100%, calc(${cap}vh * ${(ill.w / ill.h).toFixed(3)}));margin-inline:auto` : ''}">${Array.from({ length: 9 }, (_, i) => has(ill.id, i)
     ? `<i class="${i === fresh ? 'fresh' : ''}" style="background-image:url(${ill.file});background-position:${(i % 3) * 50}% ${Math.floor(i / 3) * 50}%"></i>`
     : `<i class="no"><b>${i + 1}</b></i>`).join('')}</div>`;
 }
@@ -606,15 +608,23 @@ function render(st) {
 const back = () => history.back();
 
 // ---------- ホーム
+// つぎに遊ぶステージ(ひらいている しょうのうち、まだ完成していない最初のもの)
+function nextStage() {
+  const ci = ILL.findIndex((x, i) => chapterOpen(i) && !done(x.id));
+  if (ci < 0) return null;
+  const i = [...Array(9).keys()].find(k => !has(ILL[ci].id, k));
+  return { ci, i, u: storyStages(ci)[i] };
+}
 function partnerUnit() { return S.partner && formOf(S.partner) ? byId[S.partner] : owned()[0] || null; }
 function home() {
-  const p = partnerUnit(), n = owned().length, mine = myCards();
+  const p = partnerUnit(), n = owned().length, mine = myCards(), cont = nextStage();
   app.innerHTML = `
     <header class="top" data-furi-slot><h1>なかまドリル</h1></header>
     <section class="hero">
       <div class="stage">${p ? nakamaSVG(p, formOf(p.id), rec(p.id).kira, 'bob') : eggSVG(UNITS[0], 'wob')}</div>
       <div class="say">${p ? `<b>${esc(p.names[formOf(p.id) - 1])}</b><span>きょうも いっしょに がんばろう！</span>` : '<b>なかまを あつめよう</b><span>ドリルを1つクリアすると、たまごから なかまが生まれるよ。</span>'}</div>
     </section>
+    ${cont ? `<button class="cont" id="cont"><b>▶ つづきから</b><small>${cont.ci + 1}しょう ステージ${cont.i + 1}「${esc(cont.u.title)}」</small></button>` : ''}
     ${ILL.length ? `<div class="modes">
       <button class="mode story" id="story"><span class="ic">🗺️</span><b>ストーリー</b><small>${ILL.filter(x => done(x.id)).length} / ${ILL.length} しょう</small></button>
       <button class="mode battle" id="battle"><span class="ic">⚔️</span><b>バトル</b><small>${S.bw ? `${S.bw}かい かった` : 'カードで しょうぶ'}</small></button></div>` : ''}
@@ -631,6 +641,8 @@ function home() {
     app.querySelector('#story').onclick = () => { SE.play('select'); go({ s: 'story' }); };
     app.querySelector('#battle').onclick = () => { SE.play('select'); go({ s: 'battle' }); };
   }
+  // つづきから: マップを1つ積んでからステージへ(終わって「マップへ」で そのしょうのマップにもどる)
+  if (cont) app.querySelector('#cont').onclick = () => { SE.play('start'); go({ s: 'map', c: cont.ci }); go({ s: 'quiz', id: cont.u.id, story: { ill: ILL[cont.ci].id, stage: cont.i } }); };
   app.querySelectorAll('[data-subj]').forEach(b => b.onclick = () => { SE.play('select'); go({ s: 'subj', subj: b.dataset.subj }); });
 }
 
@@ -776,6 +788,9 @@ function result() {
   cur = { s: 'result' };
   app.innerHTML = `
     <div class="qbar" style="--c:${v.color}"><button class="back" id="quit" data-noconfirm aria-label="もどる">←</button><div class="ttl">${esc(u.title)}<small>けっか</small></div></div>
+    ${newPiece ? `<section class="getpiece${complete ? ' complete' : ''}"><h3>${complete ? '🎉 イラストが完成した！' : '🧩 ピースをゲット！'}</h3>
+      ${puzzleHTML(ill, complete ? 'whole getp' : 'getp', complete ? -1 : sty.stage)}
+      <p class="sub">${complete ? `「${esc(ill.name)}」が ずかんに登録されたよ。バトルで つかえるカードになった！` : `「${esc(ill.name)}」のピース ${pieceCount(sty.ill)} / 9`}</p></section>` : ''}
     <section class="res ${ev}">
       <div class="score">${score}<small> / ${n}</small></div>
       <div class="stars big">${[1, 2, 3].map(i => `<span class="${score >= PASS + i - 1 ? 'on' : ''}">★</span>`).join('')}</div>
@@ -784,9 +799,6 @@ function result() {
       <p class="nm" id="nm">${ev === 'miss' ? `${PASS}問できたらクリア。${f0 ? '' : 'たまごが待っているよ！'}` : ev === 'born' ? '…あれ？たまごが動いてる！' : esc(u.names[f0 - 1])}</p>
       ${clear && next ? `<p class="hint">あと${next}回クリアで進化！</p>` : clear && f1 === 3 && !r.kira ? '<p class="hint">全問正解でキラになるよ！</p>' : ''}
     </section>
-    ${newPiece ? `<section class="getpiece${complete ? ' complete' : ''}"><h3>${complete ? '🎉 イラストが完成した！' : '🧩 ピースをゲット！'}</h3>
-      ${puzzleHTML(ill, complete ? 'whole' : '', complete ? -1 : sty.stage)}
-      <p class="sub">${complete ? `「${esc(ill.name)}」が ずかんに登録されたよ。バトルで つかえるカードになった！` : `「${esc(ill.name)}」のピース ${pieceCount(sty.ill)} / 9`}</p></section>` : ''}
     ${got.length ? `<section class="getcards" id="getcards"><h3>🎁 カードをゲット！</h3><div class="cgrid">${got.map((c, i) => `<button class="card flip" style="animation-delay:${2 + i * 0.5}s" data-card="${c.id}">${cardFace(c)}</button>`).join('')}</div><p class="sub">タップすると、くわしく見られるよ</p></section>` : clear && r.clears > 7 ? '<p class="sub center">この単元のカードは ぜんぶもらったよ。ほかの単元でもカードを集めよう！</p>' : ''}
     <div id="dlg"></div>
     <div class="btns">
@@ -917,23 +929,28 @@ function illDetail(x) {
 // ---------- ストーリー: しょうをえらぶ → マップ(9ステージ)
 function storyTop() {
   const grades = [...new Set(UNITS.map(u => u.grade))].sort();
+  // ひらいている しょうと、つぎの1つ(かぎつき)だけ出す。その先は数だけ
+  const firstLock = ILL.findIndex((_, ci) => !chapterOpen(ci)), shown = firstLock < 0 ? ILL.length : firstLock + 1;
   app.innerHTML = `
     <header class="top" data-furi-slot><button class="back" id="back" data-noconfirm aria-label="もどる">←</button><h2>🗺️ ストーリー</h2></header>
     <p class="sub">ステージを1つクリアするごとに、イラストのピースが1つもらえるよ。9つ集めると完成！</p>
     <div class="tabs">${grades.map(g => `<button class="tab${g === S.sg ? ' on' : ''}" data-g="${g}" style="--c:#3a2f7a">${g}年</button>`).join('')}</div>
-    <div class="chaps">${ILL.map((x, ci) => {
+    <div class="chaps">${ILL.slice(0, shown).map((x, ci) => {
       const open = chapterOpen(ci), n = pieceCount(x.id);
       return `<button class="chap${open ? '' : ' lock'}${done(x.id) ? ' full' : ''}" data-c="${ci}" ${open ? '' : 'disabled'}>
         ${open && n ? puzzleHTML(x, done(x.id) ? 'whole' : '') : `<div class="pz none" style="aspect-ratio:${x.w} / ${x.h}"><b>${open ? '？' : '🔒'}</b></div>`}
         <span class="txt"><b>${ci + 1}しょう ${esc(x.place)}</b><small>${done(x.id) ? `✅ ${esc(x.name)}` : open ? `ピース ${n} / 9` : `${ci}しょうを クリアすると ひらく`}</small></span></button>`;
-    }).join('')}</div>
+    }).join('')}${ILL.length > shown ? `<p class="rest">🔒 この先に まだ ${ILL.length - shown}しょう あるよ</p>` : ''}</div>
     <p class="foot">学年をかえると、ステージの問題が その学年のものになるよ(もらったピースは そのまま)。</p>`;
   app.querySelector('#back').onclick = back;
+  // いま遊んでいる しょうまで スクロール(render が上にもどしたあとで)
+  const now = app.querySelector('.chap:not(.full):not(.lock)');
+  if (now && now.dataset.c > 1) setTimeout(() => now.scrollIntoView({ block: 'center' }), 0);
   app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { S.sg = +b.dataset.g; save(); SE.play('select'); storyTop(); });
   app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { SE.play('select'); go({ s: 'map', c: +b.dataset.c }); });
 }
 // マップのステージの位置(下から上へ、くねくね進む)。横・たて とも%
-const MAP_PTS = [[22, 90], [55, 84], [80, 72], [52, 62], [20, 52], [42, 40], [76, 32], [54, 19], [24, 9]];
+const MAP_PTS = [[24, 93], [62, 84], [78, 73], [44, 63], [20, 52], [46, 41], [78, 31], [54, 19], [26, 8]];
 function mapScreen(ci) {
   const x = ILL[ci], us = storyStages(ci);
   const next = us.findIndex((_, i) => !has(x.id, i));
@@ -949,9 +966,12 @@ function mapScreen(ci) {
           <span class="dot">${got ? '🧩' : open ? i + 1 : '🔒'}</span><span class="lb">${v.icon} ${esc(u.title)}</span></button>`;
       }).join('')}
     </div>
-    <p class="foot">${done(x.id) ? 'このしょうは クリア！ステージは何回でも あそべるよ。' : `つぎは ステージ${next + 1}。10問中${PASS}問できたら ピースが1つもらえるよ。`}</p>`;
+    <p class="foot">📚 ${S.sg}年の問題(ストーリーの画面で 学年をかえられるよ)。${done(x.id) ? 'このしょうは クリア！ステージは何回でも あそべるよ。' : `つぎは ステージ${next + 1}。10問中${PASS}問できたら ピースが1つもらえるよ。`}</p>`;
   app.querySelector('#back').onclick = back;
   app.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { SE.play('start'); const i = +b.dataset.i; go({ s: 'quiz', id: us[i].id, story: { ill: x.id, stage: i } }); });
+  // つぎのステージが見えるところまでスクロール
+  const nowNode = app.querySelector('.node.now');
+  if (nowNode && next > 0) setTimeout(() => nowNode.scrollIntoView({ block: 'center' }), 0);
 }
 
 // ---------- バトル(ジャンケン＋数字)
@@ -974,7 +994,7 @@ const eggCard = h => ({ k: 'egg', hand: h, num: 1, name: 'たまご' });
 function battleCard(c, cls = '') {
   const art = c.k === 'ill' ? `<span class="art" style="background-image:url(${c.x.file})"></span>`
     : c.k === 'nk' ? `<span class="art nk">${nakamaSVG(c.u, c.f, c.kira)}</span>` : `<span class="art nk">${eggSVG(UNITS[0])}</span>`;
-  return `<span class="bc ${c.k} ${cls}">${art}<span class="hd">${HICON[c.hand]}</span><span class="num">${c.num}</span>${c.fx && FX[c.fx] ? `<span class="fxi">${FX[c.fx].icon}</span>` : ''}<span class="nm3">${esc(c.name)}</span></span>`;
+  return `<span class="bc ${c.k}${c.kage ? ' kage' : ''} ${cls}">${art}<span class="hd">${HICON[c.hand]}</span><span class="num">${c.num}</span>${c.fx && FX[c.fx] ? `<span class="fxi">${FX[c.fx].icon}</span>` : ''}<span class="nm3">${esc(c.name)}</span></span>`;
 }
 let B = null;
 function battleScreen() {
@@ -983,8 +1003,12 @@ function battleScreen() {
   const nks = shuffle(owned().map(u => nkCard(u, formOf(u.id), rec(u.id).kira))).sort((a, b) => b.num - a.num);
   while (mine.length < 5 && nks.length) mine.push(nks.shift());
   while (mine.length < 5) mine.push(eggCard(pick('gcp')));
-  // あいて: やせいの なかま5ひき(数字は2〜5)
-  const foe = Array.from({ length: 5 }, () => { const u = pick(UNITS), f = ri(1, 3); return nkCard(u, f, Math.random() < 0.15); });
+  // あいて: やせいの なかま(数字は2〜5)。完成したイラストが ふえるほど、ボス(かげの〜、数字6〜9)が まざって強くなる
+  const dn = ILL.filter(x => done(x.id)), boss = Math.min(3, Math.floor(dn.length / 3));
+  const foe = Array.from({ length: 5 }, (_, k) => {
+    if (k < boss) { const x = pick(dn); return { k: 'ill', kage: true, x, hand: pick('gcp'), num: ri(6, 9), name: 'かげの' + x.name }; }
+    const u = pick(UNITS), f = ri(1, 3); return nkCard(u, f, Math.random() < 0.15);
+  });
   B = { mine: shuffle(mine), foe: shuffle(foe), round: 0, w: 0, l: 0, log: [] };
   drawBattle();
 }
